@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" th:fragment="layout (title, content)">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:replace="${title}">Admin - Vintage Pharmacy</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="/webjars/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #10b981;
+            --accent-color: #f59e0b;
+            --success-color: #059669;
+            --danger-color: #dc2626;
+            --warning-color: #d97706;
+            --info-color: #0891b2;
+            --light-color: #f8fafc;
+            --dark-color: #1e293b;
+            --medical-blue: #0ea5e9;
+            --medical-green: #22c55e;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            line-height: 1.6;
+            color: var(--dark-color);
+            background-color: #f8fafc;
+        }
+
+        /* Admin Header */
+        .admin-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--medical-blue));
+            color: white;
+            padding: 1rem 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .admin-nav {
+            background: white;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .admin-nav .nav-link {
+            color: var(--dark-color);
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .admin-nav .nav-link:hover {
+            color: var(--primary-color);
+            background-color: var(--light-color);
+        }
+
+        .admin-nav .nav-link.active {
+            color: var(--primary-color);
+            background-color: var(--light-color);
+        }
+
+        /* Cards */
+        .card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+        }
+
+        /* Buttons */
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--medical-blue));
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+
+        /* Tables */
+        .table {
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .table thead th {
+            background-color: var(--light-color);
+            border: none;
+            font-weight: 600;
+            color: var(--dark-color);
+        }
+
+        .table tbody tr:hover {
+            background-color: rgba(37, 99, 235, 0.05);
+        }
+
+        /* Badges */
+        .badge {
+            font-weight: 500;
+            padding: 0.5em 0.8em;
+        }
+
+        /* Main content area */
+        .admin-main {
+            min-height: calc(100vh - 200px);
+            padding: 2rem 0;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .admin-main {
+                padding: 1rem 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Admin Header -->
+    <div class="admin-header">
+        <div class="container-fluid">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-0">
+                        <i class="fas fa-heartbeat me-2"></i>
+                        Vintage Pharmacy Admin
+                    </h4>
+                </div>
+                <div class="d-flex align-items-center">
+                    <span class="me-3">
+                        <i class="fas fa-user me-1"></i>
+                        <span th:text="${currentFullName != null ? currentFullName : currentUsername}">Admin</span>
+                    </span>
+                    <a href="/" class="btn btn-outline-light btn-sm me-2">
+                        <i class="fas fa-home me-1"></i>Trang chủ
+                    </a>
+                    <a href="/logout" class="btn btn-outline-light btn-sm">
+                        <i class="fas fa-sign-out-alt me-1"></i>Đăng xuất
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Navigation -->
+    <div class="admin-nav">
+        <div class="container-fluid">
+            <ul class="nav nav-pills">
+                <li class="nav-item">
+                    <a class="nav-link" href="/admin/dashboard">
+                        <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/admin/products">
+                        <i class="fas fa-pills me-1"></i>Sản phẩm
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/admin/categories">
+                        <i class="fas fa-folder me-1"></i>Danh mục
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/admin/orders">
+                        <i class="fas fa-shopping-cart me-1"></i>Đơn hàng
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/admin/users">
+                        <i class="fas fa-user-cog me-1"></i>Quản lý tài khoản
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="admin-main">
+        <div th:replace="${content}">
+            <!-- Page content will be inserted here -->
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-top py-3 mt-auto">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-md-6">
+                    <small class="text-muted">&copy; 2024 Vintage Pharmacy Admin Panel</small>
+                </div>
+                <div class="col-md-6 text-end">
+                    <small class="text-muted">Phiên bản 1.0.0</small>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="/webjars/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="/webjars/jquery/3.7.0/jquery.min.js"></script>
+
+    <th:block th:fragment="scripts">
+        <!-- Additional scripts can be added here -->
+    </th:block>
+</body>
+</html>

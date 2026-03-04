@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: layout(~{::title}, ~{::main})}">
+<head>
+    <title>Trang chủ - Vintage Pharmacy</title>
+</head>
+<body>
+<main>
+    <!-- Hero Section -->
+    <section class="hero-section bg-gradient-primary text-white py-5">
+        <div class="container">
+            <div class="row align-items-center min-vh-50">
+                <div class="col-lg-6">
+                    <div class="hero-content fade-in-up">
+                        <h1 class="display-4 fw-bold mb-4">
+                            <i class="fas fa-heartbeat text-warning me-3"></i>
+                            Vintage Pharmacy
+                        </h1>
+                        <p class="lead mb-4">
+                            Chuyên cung cấp dược phẩm chức năng chất lượng cao, đảm bảo an toàn và hiệu quả cho sức khỏe của bạn và gia đình.
+                        </p>
+                        <div class="d-flex flex-wrap gap-3">
+                            <a href="/products" class="btn btn-warning btn-lg rounded-pill px-4">
+                                <i class="fas fa-pills me-2"></i>Xem sản phẩm
+                            </a>
+                            <a href="/about" class="btn btn-outline-light btn-lg rounded-pill px-4">
+                                <i class="fas fa-info-circle me-2"></i>Tìm hiểu thêm
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="hero-image text-center">
+                        <i class="fas fa-clinic-medical text-warning" style="font-size: 20rem; opacity: 0.1;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features-section py-5">
+        <div class="container">
+            <div class="row text-center mb-5">
+                <div class="col-12">
+                    <h2 class="display-5 fw-bold text-primary mb-3">
+                        <i class="fas fa-star me-2"></i>Tại sao chọn chúng tôi?
+                    </h2>
+                    <p class="lead text-muted">Cam kết mang đến những sản phẩm tốt nhất cho sức khỏe của bạn</p>
+                </div>
+            </div>
+
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="card h-100 text-center border-0 shadow-sm">
+                        <div class="card-body p-4">
+                            <div class="feature-icon mb-3">
+                                <i class="fas fa-shield-alt fa-3x text-success"></i>
+                            </div>
+                            <h5 class="card-title fw-bold">Chất lượng đảm bảo</h5>
+                            <p class="card-text text-muted">
+                                Tất cả sản phẩm đều được kiểm định chất lượng nghiêm ngặt từ các nhà sản xuất uy tín.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card h-100 text-center border-0 shadow-sm">
+                        <div class="card-body p-4">
+                            <div class="feature-icon mb-3">
+                                <i class="fas fa-shipping-fast fa-3x text-primary"></i>
+                            </div>
+                            <h5 class="card-title fw-bold">Giao hàng nhanh chóng</h5>
+                            <p class="card-text text-muted">
+                                Đội ngũ giao hàng chuyên nghiệp, cam kết giao hàng trong 24h tại nội thành.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card h-100 text-center border-0 shadow-sm">
+                        <div class="card-body p-4">
+                            <div class="feature-icon mb-3">
+                                <i class="fas fa-user-md fa-3x text-info"></i>
+                            </div>
+                            <h5 class="card-title fw-bold">Tư vấn chuyên nghiệp</h5>
+                            <p class="card-text text-muted">
+                                Đội ngũ dược sĩ giàu kinh nghiệm sẵn sàng tư vấn và hỗ trợ 24/7.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Featured Products Section -->
+    <section class="featured-products py-5 bg-light">
+        <div class="container">
+            <div class="row text-center mb-5">
+                <div class="col-12">
+                    <h2 class="display-5 fw-bold text-primary mb-3">
+                        <i class="fas fa-fire me-2"></i>Sản phẩm nổi bật
+                    </h2>
+                    <p class="lead text-muted">Những sản phẩm được khách hàng tin tùng và lựa chọn nhiều nhất</p>
+                </div>
+            </div>
+
+            <div class="row g-4" th:if="${featuredProducts != null and !#lists.isEmpty(featuredProducts)}">
+                <div class="col-lg-3 col-md-6" th:each="product : ${featuredProducts}">
+                    <div class="card product-card h-100 border-0 shadow-sm">
+                        <div class="position-relative">
+                            <img th:src="@{${product.imageUrl}}"
+                                 class="card-img-top"
+                                 alt="Product Image"
+                                 style="height: 200px; object-fit: cover;">
+                            <span class="badge bg-warning position-absolute top-0 end-0 m-2">
+                                    <i class="fas fa-star me-1"></i>Nổi bật
+                                </span>
+                        </div>
+                        <div class="card-body d-flex flex-column">
+                            <h6 class="card-title fw-bold" th:text="${product.name}">Tên sản phẩm</h6>
+                            <p class="card-text text-muted small flex-grow-1"
+                               th:text="${#strings.abbreviate(product.description, 80)}">
+                                Mô tả sản phẩm...
+                            </p>
+                            <div class="price-section mt-auto">
+                                <div th:if="${product.salePrice != null and product.salePrice > 0}">
+                                        <span class="text-decoration-line-through text-muted small"
+                                              th:text="${#numbers.formatDecimal(product.price, 0, 'COMMA', 0, 'POINT')} + ' VNĐ'">
+                                        </span>
+                                    <span class="h6 text-danger fw-bold"
+                                          th:text="${#numbers.formatDecimal(product.salePrice, 0, 'COMMA', 0, 'POINT')} + ' VNĐ'">
+                                        </span>
+                                </div>
+                                <div th:unless="${product.salePrice != null and product.salePrice > 0}">
+                                        <span class="h6 text-primary fw-bold"
+                                              th:text="${#numbers.formatDecimal(product.price, 0, 'COMMA', 0, 'POINT')} + ' VNĐ'">
+                                        </span>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <small class="text-muted">
+                                    <i class="fas fa-boxes me-1"></i>
+                                    Còn <span th:text="${product.stockQuantity}">0</span>
+                                </small>
+                                <a th:href="@{/products/{id}(id=${product.id})}"
+                                   class="btn btn-primary btn-sm rounded-pill">
+                                    <i class="fas fa-eye me-1"></i>Xem
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div th:if="${featuredProducts == null or #lists.isEmpty(featuredProducts)}" class="text-center">
+                <p class="text-muted">Chưa có sản phẩm nổi bật nào.</p>
+            </div>
+
+            <div class="text-center mt-5">
+                <a href="/products" class="btn btn-primary btn-lg rounded-pill px-5">
+                    <i class="fas fa-pills me-2"></i>Xem tất cả sản phẩm
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Categories Section -->
+    <section class="categories-section py-5">
+        <div class="container">
+            <div class="row text-center mb-5">
+                <div class="col-12">
+                    <h2 class="display-5 fw-bold text-primary mb-3">
+                        <i class="fas fa-list me-2"></i>Danh mục sản phẩm
+                    </h2>
+                    <p class="lead text-muted">Tìm kiếm sản phẩm theo từng danh mục chuyên biệt</p>
+                </div>
+            </div>
+
+            <div class="row g-4" th:if="${categories != null and !#lists.isEmpty(categories)}">
+                <div class="col-lg-3 col-md-6 mb-4" th:each="category : ${categories}">
+                    <div class="card category-card h-100 border-0 shadow-sm text-center">
+                        <div class="card-body d-flex flex-column justify-content-center">
+                            <div class="category-icon mb-3">
+                                <i class="fas fa-capsules fa-3x text-primary"></i>
+                            </div>
+                            <h5 class="card-title fw-bold mb-3" th:text="${category.name}">Tên danh mục</h5>
+                            <p class="card-text text-muted small flex-grow-1" th:text="${category.description}">
+                                Mô tả danh mục
+                            </p>
+                            <a th:href="@{/products(category=${category.id})}"
+                               class="btn btn-outline-primary rounded-pill mt-auto">
+                                <i class="fas fa-arrow-right me-1"></i>Xem sản phẩm
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div th:if="${categories == null or #lists.isEmpty(categories)}" class="text-center">
+                <p class="text-muted">Chưa có danh mục nào.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section bg-gradient-primary text-white py-5">
+        <div class="container text-center">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <h2 class="display-5 fw-bold mb-4">
+                        <i class="fas fa-phone-alt me-2"></i>Cần tư vấn?
+                    </h2>
+                    <p class="lead mb-4">
+                        Đội ngũ dược sĩ chuyên nghiệp của chúng tôi sẵn sàng tư vấn miễn phí 24/7
+                    </p>
+                    <div class="d-flex justify-content-center gap-3 flex-wrap">
+                        <a href="/contact" class="btn btn-warning btn-lg rounded-pill px-4">
+                            <i class="fas fa-phone me-2"></i>Liên hệ ngay
+                        </a>
+                        <a href="tel:1900xxxx" class="btn btn-outline-light btn-lg rounded-pill px-4">
+                            <i class="fas fa-phone-alt me-2"></i>1900-xxxx
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Floating Chatbot Button -->
+    <div id="chatbot-float-btn" class="chatbot-float-btn" onclick="toggleChatbot()">
+        <i class="fas fa-robot"></i>
+        <div class="chatbot-pulse"></div>
+    </div>
+
+    <!-- Floating Chatbot Window -->
+    <div id="chatbot-window" class="chatbot-window">
+        <div class="chatbot-header">
+            <div class="d-flex align-items-center">
+                <div class="chatbot-avatar me-2">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div>
+                    <h6 class="mb-0">Trợ lý AI Vintage</h6>
+                    <small class="text-muted">Đang trực tuyến</small>
+                </div>
+            </div>
+            <button type="button" class="btn-close btn-close-white" onclick="toggleChatbot()"></button>
+        </div>
+        <div class="chatbot-messages" id="chatbot-messages">
+            <div class="message bot-message">
+                <div class="message-avatar">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="message-content">
+                    <p>👋 Xin chào! Tôi là trợ lý AI của Vintage Pharmacy. Tôi có thể giúp bạn tư vấn về dược phẩm và sức khỏe. Bạn cần hỗ trợ gì không?</p>
+                </div>
+            </div>
+        </div>
+        <div class="chatbot-input">
+            <div class="input-group">
+                <input type="text" id="chatbot-message" class="form-control" placeholder="Nhập câu hỏi của bạn..." onkeypress="handleChatKeyPress(event)">
+                <button class="btn btn-primary" type="button" onclick="sendMessage()">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, var(--primary-color), var(--medical-blue));
+            min-height: 60vh;
+        }
+
+        .bg-gradient-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--medical-blue));
+        }
+
+        .product-card:hover {
+            transform: translateY(-5px);
+            transition: all 0.3s ease;
+        }
+
+        .category-card:hover {
+            transform: translateY(-3px);
+            transition: all 0.3s ease;
+        }
+
+        /* Chatbot Floating Button Styles */
+        .chatbot-float-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary-color), var(--medical-blue));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(37, 99, 235, 0.3);
+            z-index: 1000;
+            transition: all 0.3s ease;
+            animation: chatbotPulse 2s infinite;
+        }
+
+        .chatbot-float-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 30px rgba(37, 99, 235, 0.4);
+        }
+
+        .chatbot-pulse {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: rgba(37, 99, 235, 0.3);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            70% {
+                transform: scale(1.5);
+                opacity: 0;
+            }
+            100% {
+                transform: scale(1.5);
+                opacity: 0;
+            }
+        }
+
+        @keyframes chatbotPulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        /* Chatbot Window Styles */
+        .chatbot-window {
+            position: fixed;
+            bottom: 110px;
+            right: 30px;
+            width: 350px;
+            height: 500px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            z-index: 999;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chatbot-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--medical-blue));
+            color: white;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chatbot-avatar {
+            width: 35px;
+            height: 35px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .chatbot-messages {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+
+        .message {
+            display: flex;
+            margin-bottom: 15px;
+            align-items: flex-start;
+        }
+
+        .bot-message {
+            justify-content: flex-start;
+        }
+
+        .user-message {
+            justify-content: flex-end;
+        }
+
+        .message-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            margin-right: 8px;
+        }
+
+        .bot-message .message-avatar {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .user-message .message-avatar {
+            background: var(--success-color);
+            color: white;
+            margin-right: 0;
+            margin-left: 8px;
+            order: 2;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 10px 15px;
+            border-radius: 15px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .bot-message .message-content {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-bottom-left-radius: 5px;
+        }
+
+        .user-message .message-content {
+            background: var(--primary-color);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+
+        .chatbot-input {
+            padding: 15px;
+            border-top: 1px solid #e9ecef;
+            background: white;
+        }
+
+        .chatbot-input .form-control {
+            border-radius: 25px;
+            border: 1px solid #e9ecef;
+            padding: 10px 15px;
+        }
+
+        .chatbot-input .btn {
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Loading animation */
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+        }
+
+        .typing-indicator span {
+            height: 8px;
+            width: 8px;
+            background: #999;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes typing {
+            0%, 80%, 100% {
+                transform: scale(0.8);
+                opacity: 0.5;
+            }
+            40% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .chatbot-window {
+                width: 90vw;
+                right: 5vw;
+                left: 5vw;
+                height: 60vh;
+            }
+
+            .chatbot-float-btn {
+                bottom: 20px;
+                right: 20px;
+                width: 50px;
+                height: 50px;
+                font-size: 20px;
+            }
+        }
+    </style>
+
+    <script>
+        let chatbotOpen = false;
+
+        function toggleChatbot() {
+            const chatbotWindow = document.getElementById('chatbot-window');
+            const chatbotBtn = document.getElementById('chatbot-float-btn');
+
+            if (chatbotOpen) {
+                chatbotWindow.style.display = 'none';
+                chatbotBtn.innerHTML = '<i class="fas fa-robot"></i><div class="chatbot-pulse"></div>';
+                chatbotOpen = false;
+            } else {
+                chatbotWindow.style.display = 'flex';
+                chatbotBtn.innerHTML = '<i class="fas fa-times"></i>';
+                chatbotOpen = true;
+
+                // Focus on input
+                document.getElementById('chatbot-message').focus();
+            }
+        }
+
+        function handleChatKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        function sendMessage() {
+            const messageInput = document.getElementById('chatbot-message');
+            const message = messageInput.value.trim();
+
+            if (message === '') return;
+
+            // Add user message to chat
+            addMessage(message, true);
+            messageInput.value = '';
+
+            // Show typing indicator
+            showTypingIndicator();
+
+            // Send message to backend (no CSRF token needed)
+            fetch('/chatbot/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ message: message })
+            })
+                .then(response => {
+                    console.log('Chatbot response status:', response.status);
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const contentType = response.headers.get('content-type');
+                    if (!contentType || !contentType.includes('application/json')) {
+                        throw new Error('Expected JSON response but got: ' + contentType);
+                    }
+
+                    return response.json();
+                })
+                .then(data => {
+                    hideTypingIndicator();
+                    console.log('Chatbot response data:', data);
+
+                    // Handle different response formats
+                    const responseMessage = data.response || data.message || 'Xin lỗi, tôi không thể xử lý câu hỏi của bạn lúc này.';
+                    addMessage(responseMessage, false);
+                })
+                .catch(error => {
+                    hideTypingIndicator();
+                    console.error('Chatbot Error:', error);
+
+                    // More specific error messages
+                    let errorMessage = 'Xin lỗi, đã xảy ra lỗi khi kết nối với chatbot.';
+
+                    if (error.message.includes('JSON')) {
+                        errorMessage = 'Chatbot hiện không khả dụng. Vui lòng thử lại sau hoặc liên hệ hỗ trợ.';
+                    } else if (error.message.includes('404')) {
+                        errorMessage = 'Dịch vụ chatbot kh��ng tìm thấy. Vui lòng liên hệ quản trị viên.';
+                    } else if (error.message.includes('403')) {
+                        errorMessage = 'Không có quyền truy cập chatbot. Vui lòng thử lại hoặc tải lại trang.';
+                    } else if (error.message.includes('500')) {
+                        errorMessage = 'Lỗi server. Vui lòng thử lại sau ít phút.';
+                    }
+
+                    addMessage(errorMessage, false);
+                });
+        }
+
+        function addMessage(message, isUser) {
+            const messagesContainer = document.getElementById('chatbot-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+
+            const avatarDiv = document.createElement('div');
+            avatarDiv.className = 'message-avatar';
+            avatarDiv.innerHTML = isUser ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+
+            // Format message with markdown-like styling
+            const formattedMessage = formatMessage(message);
+            contentDiv.innerHTML = formattedMessage;
+
+            messageDiv.appendChild(avatarDiv);
+            messageDiv.appendChild(contentDiv);
+            messagesContainer.appendChild(messageDiv);
+
+            // Scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function formatMessage(message) {
+            return message
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/\n/g, '<br>');
+        }
+
+        function showTypingIndicator() {
+            const messagesContainer = document.getElementById('chatbot-messages');
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'message bot-message';
+            typingDiv.id = 'typing-indicator';
+
+            typingDiv.innerHTML = `
+                <div class="message-avatar">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="message-content typing-indicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            `;
+
+            messagesContainer.appendChild(typingDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function hideTypingIndicator() {
+            const typingIndicator = document.getElementById('typing-indicator');
+            if (typingIndicator) {
+                typingIndicator.remove();
+            }
+        }
+    </script>
+
+    </style>
+</main>
+</body>
+</html>

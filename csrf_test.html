@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CSRF Attack Test</title>
+</head>
+<body>
+    <h1>🚨 CSRF Attack Test</h1>
+    <p>Test xem CSRF protection có hoạt động không</p>
+
+    <!-- Test CSRF trên form đăng ký -->
+    <form action="http://localhost:1199/register" method="POST" id="csrfTest">
+        <input type="hidden" name="username" value="hacker123">
+        <input type="hidden" name="email" value="hacker@evil.com">
+        <input type="hidden" name="password" value="Hack123@">
+        <input type="hidden" name="confirmPassword" value="Hack123@">
+        <input type="hidden" name="fullName" value="Evil Hacker">
+        <input type="submit" value="🎯 Test CSRF Attack">
+    </form>
+
+    <h2>Cách test:</h2>
+    <ol>
+        <li>Đảm bảo app đang chạy trên localhost:1199</li>
+        <li>Click nút "Test CSRF Attack" ở trên</li>
+        <li>✅ PASS nếu thấy lỗi 403 Forbidden hoặc CSRF token missing</li>
+        <li>❌ FAIL nếu tạo được tài khoản thành công</li>
+    </ol>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: layout(~{::title}, ~{::main})}">
+<head>
+    <title>Danh mục sản phẩm - Vintage Pharmacy</title>
+</head>
+<body>
+    <main>
+        <div class="container my-5">
+            <!-- Header -->
+            <div class="text-center mb-5">
+                <h1 class="display-5 fw-bold text-primary">Danh mục sản phẩm</h1>
+                <p class="lead text-muted">Khám phá các danh mục sản phẩm chăm sóc sức khỏe của chúng tôi</p>
+            </div>
+
+            <!-- Categories Grid -->
+            <div class="row g-4">
+                <div th:each="category : ${categories}" class="col-md-6 col-lg-4">
+                    <div class="card h-100 shadow-sm category-card">
+                        <div class="card-body text-center p-4">
+                            <div class="category-icon mb-3">
+                                <i class="fas fa-pills fa-3x text-primary" th:if="${category.name.toLowerCase().contains('thuốc')}"></i>
+                                <i class="fas fa-heart fa-3x text-danger" th:if="${category.name.toLowerCase().contains('tim')}"></i>
+                                <i class="fas fa-eye fa-3x text-info" th:if="${category.name.toLowerCase().contains('mắt')}"></i>
+                                <i class="fas fa-tooth fa-3x text-warning" th:if="${category.name.toLowerCase().contains('răng')}"></i>
+                                <i class="fas fa-child fa-3x text-success" th:if="${category.name.toLowerCase().contains('trẻ em')}"></i>
+                                <i class="fas fa-female fa-3x text-pink" th:if="${category.name.toLowerCase().contains('phụ nữ')}"></i>
+                                <i class="fas fa-leaf fa-3x text-success" th:if="${category.name.toLowerCase().contains('thảo dược')}"></i>
+                                <i class="fas fa-medkit fa-3x text-primary" th:unless="${category.name.toLowerCase().contains('thuốc') or
+                                    category.name.toLowerCase().contains('tim') or
+                                    category.name.toLowerCase().contains('mắt') or
+                                    category.name.toLowerCase().contains('răng') or
+                                    category.name.toLowerCase().contains('trẻ em') or
+                                    category.name.toLowerCase().contains('phụ nữ') or
+                                    category.name.toLowerCase().contains('thảo dược')}"></i>
+                            </div>
+                            <h5 class="card-title fw-bold" th:text="${category.name}">Tên danh mục</h5>
+                            <p class="card-text text-muted" th:text="${category.description ?: 'Khám phá các sản phẩm trong danh mục này'}">Mô tả danh mục</p>
+                            <div class="d-grid">
+                                <a th:href="@{/products(category=${category.id})}" class="btn btn-outline-primary">
+                                    <i class="fas fa-arrow-right me-2"></i>Xem sản phẩm
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div th:if="${#lists.isEmpty(categories)}" class="text-center py-5">
+                <i class="fas fa-box-open fa-4x text-muted mb-3"></i>
+                <h4 class="text-muted">Chưa có danh mục nào</h4>
+                <p class="text-muted">Hiện tại chưa có danh mục sản phẩm nào được hiển thị.</p>
+                <a href="/" class="btn btn-primary">
+                    <i class="fas fa-home me-2"></i>Về trang chủ
+                </a>
+            </div>
+        </div>
+
+        <style>
+            .category-card {
+                transition: transform 0.3s ease, box-shadow 0.3s ease;
+                border: none;
+                background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            }
+
+            .category-card:hover {
+                transform: translateY(-10px);
+                box-shadow: 0 10px 30px rgba(0,0,0,0.15) !important;
+            }
+
+            .category-icon {
+                animation: pulse 2s infinite;
+            }
+
+            @keyframes pulse {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.05); }
+                100% { transform: scale(1); }
+            }
+
+            .text-pink {
+                color: #e91e63 !important;
+            }
+
+            .btn-outline-primary:hover {
+                transform: scale(1.05);
+            }
+        </style>
+    </main>
+</body>
+</html>

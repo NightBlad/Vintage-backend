@@ -1,0 +1,65 @@
+package com.example.vintage.service;
+
+import com.example.vintage.entity.User;
+import com.example.vintage.repository.UserRepository;
+import com.example.vintage.security.LoginAttemptService;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.authentication.LockedException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Collection;
+import java.util.stream.Collectors;
+
+@Service
+public class UserDetailsServiceImpl implements UserDetailsService {
+
+    private final UserRepository userRepository;
+    private final LoginAttemptService loginAttemptService;
+
+    public UserDetailsServiceImpl(UserRepository userRepository, LoginAttemptService loginAttemptService) {
+        this.userRepository = userRepository;
+        this.loginAttemptService = loginAttemptService;
+    }
+
+    @Override
+    @Transactional
+    public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
+        // Tạm thời tắt kiểm tra account lockout để sửa lỗi database
+        // TODO: Bật lại sau khi sửa database schema
+        /*
+        if (loginAttemptService.isAccountLocked(usernameOrEmail)) {
+            long remainingTime = loginAttemptService.getRemainingLockoutMinutes(usernameOrEmail);
+            throw new LockedException("Tài khoản đã bị khóa do nhập sai mật khẩu quá nhiều lần. " +
+                    "Vui lòng thử lại sau " + remainingTime + " phút.");
+        }
+        */
+
+        // Tìm user theo username trước, nếu không có thì tìm theo email
+        User user = userRepository.findByUsername(usernameOrEmail)
+                .orElse(null);
+
+        if (user == null) {
+            user = userRepository.findByEmail(usernameOrEmail)
+                    .orElseThrow(() -> new UsernameNotFoundException("Không tìm thấy người dùng: " + usernameOrEmail));
+        }
+
+        Collection<GrantedAuthority> authorities = user.getRoles().stream()
+                .map(role -> new SimpleGrantedAuthority(role.getName().name()))
+                .collect(Collectors.toList());
+
+        return org.springframework.security.core.userdetails.User.builder()
+                .username(user.getUsername())
+                .password(user.getPassword())
+                .authorities(authorities)
+                .accountExpired(false)
+                .accountLocked(false) // Tạm thời set false
+                .credentialsExpired(false)
+                .disabled(!user.isEnabled())
+                .build();
+    }
+}

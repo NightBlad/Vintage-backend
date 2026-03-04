@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng nhập - Vintage Pharmacy</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="/webjars/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+        }
+
+        .login-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .login-header {
+            background: linear-gradient(135deg, #2563eb, #0ea5e9);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .login-body {
+            padding: 40px;
+        }
+
+        .form-control {
+            border-radius: 10px;
+            padding: 12px 15px;
+            border: 2px solid #e5e7eb;
+        }
+
+        .form-control:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .btn-login {
+            background: linear-gradient(135deg, #2563eb, #0ea5e9);
+            border: none;
+            border-radius: 10px;
+            padding: 12px;
+            font-weight: 600;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(37, 99, 235, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-6 col-lg-4">
+                <div class="login-card">
+                    <div class="login-header">
+                        <h3><i class="fas fa-heartbeat me-2"></i>Vintage Pharmacy</h3>
+                        <p class="mb-0">Đăng nhập vào hệ thống</p>
+                    </div>
+
+                    <div class="login-body">
+                        <!-- Error Alert -->
+                        <div th:if="${param.error}" class="alert alert-danger" role="alert">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Tên đăng nhập hoặc mật khẩu không đúng!
+                        </div>
+
+                        <!-- Logout Success Alert -->
+                        <div th:if="${param.logout}" class="alert alert-success" role="alert">
+                            <i class="fas fa-check-circle me-2"></i>
+                            Bạn đã đăng xuất thành công!
+                        </div>
+
+                        <form action="/perform-login" method="post">
+                            <!-- CSRF Token -->
+                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+
+                            <div class="mb-3">
+                                <label for="username" class="form-label">
+                                    <i class="fas fa-user me-2"></i>Tên đăng nhập
+                                </label>
+                                <input type="text" class="form-control" id="username" name="username" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="password" class="form-label">
+                                    <i class="fas fa-lock me-2"></i>Mật khẩu
+                                </label>
+                                <input type="password" class="form-control" id="password" name="password" required>
+                            </div>
+
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="remember-me" name="remember-me">
+                                <label class="form-check-label" for="remember-me">
+                                    Ghi nhớ đăng nhập
+                                </label>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary btn-login w-100">
+                                <i class="fas fa-sign-in-alt me-2"></i>Đăng Nhập
+                            </button>
+                        </form>
+
+                        <hr class="my-4">
+
+                        <div class="text-center">
+                            <p class="mb-2">Chưa có tài khoản?</p>
+                            <a href="/register" class="btn btn-outline-primary">
+                                <i class="fas fa-user-plus me-2"></i>Đăng Ký
+                            </a>
+                        </div>
+
+                        <div class="text-center mt-3">
+                            <a href="/" class="text-decoration-none">
+                                <i class="fas fa-arrow-left me-2"></i>Về trang chủ
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="/webjars/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

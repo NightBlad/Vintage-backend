@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: layout(~{::title}, ~{::main})}">
+<head>
+    <title>Đơn hàng của tôi - Vintage Pharmacy</title>
+</head>
+<body>
+    <main>
+        <div class="container my-5">
+            <!-- Header -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <h2 class="fw-bold mb-3">
+                        <i class="fas fa-shopping-bag me-2 text-primary"></i>
+                        Đơn hàng của tôi
+                    </h2>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="/">Trang chủ</a></li>
+                            <li class="breadcrumb-item"><a href="/account/profile">Tài khoản</a></li>
+                            <li class="breadcrumb-item active">Đơn hàng của tôi</li>
+                        </ol>
+                    </nav>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Sidebar -->
+                <div class="col-lg-3 mb-4">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-user me-2"></i>Tài khoản của tôi
+                            </h5>
+                        </div>
+                        <div class="list-group list-group-flush">
+                            <a href="/account/profile" class="list-group-item list-group-item-action">
+                                <i class="fas fa-user-edit me-2"></i>Thông tin cá nhân
+                            </a>
+                            <a href="/account/orders" class="list-group-item list-group-item-action active">
+                                <i class="fas fa-shopping-bag me-2"></i>Đơn hàng của tôi
+                            </a>
+                            <a href="/account/addresses" class="list-group-item list-group-item-action">
+                                <i class="fas fa-map-marker-alt me-2"></i>Địa chỉ giao hàng
+                            </a>
+                            <a href="/account/change-password" class="list-group-item list-group-item-action">
+                                <i class="fas fa-key me-2"></i>Đổi mật khẩu
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Content -->
+                <div class="col-lg-9">
+                    <div class="card">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0">
+                                <i class="fas fa-history me-2"></i>Lịch sử đơn hàng
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <!-- No Orders Message -->
+                            <div th:if="${orders.empty}" class="text-center py-5">
+                                <i class="fas fa-shopping-cart fa-4x text-muted mb-3"></i>
+                                <h4 class="text-muted">Chưa có đơn hàng nào</h4>
+                                <p class="text-muted mb-4">Bạn chưa có đơn hàng nào. Hãy bắt đầu mua sắm ngay!</p>
+                                <a href="/products" class="btn btn-primary">
+                                    <i class="fas fa-shopping-bag me-2"></i>Mua sắm ngay
+                                </a>
+                            </div>
+
+                            <!-- Orders List -->
+                            <div th:if="${!orders.empty}">
+                                <div th:each="order : ${orders}" class="card mb-3">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <strong th:text="'Đơn hàng #' + ${order.orderNumber}">Đơn hàng #DH001</strong>
+                                            <small class="text-muted ms-2" th:text="'Ngày đặt: ' + ${#temporals.format(order.orderDate, 'dd/MM/yyyy HH:mm')}">Ngày đặt: 01/01/2024</small>
+                                        </div>
+                                        <span th:class="'badge ' + ${order.status.name() == 'PENDING' ? 'bg-warning' :
+                                                                   order.status.name() == 'CONFIRMED' ? 'bg-info' :
+                                                                   order.status.name() == 'SHIPPING' ? 'bg-primary' :
+                                                                   order.status.name() == 'DELIVERED' ? 'bg-success' : 'bg-danger'}"
+                                              th:text="${order.status.name() == 'PENDING' ? 'Chờ xác nhận' :
+                                                       order.status.name() == 'CONFIRMED' ? 'Đã xác nhận' :
+                                                       order.status.name() == 'SHIPPING' ? 'Đang giao hàng' :
+                                                       order.status.name() == 'DELIVERED' ? 'Đã giao' : 'Đã hủy'}">Chờ xác nhận</span>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-8">
+                                                <h6>Thông tin giao hàng:</h6>
+                                                <p class="mb-1"><strong>Người nhận:</strong> <span th:text="${order.customerName}">Tên khách hàng</span></p>
+                                                <p class="mb-1"><strong>Số điện thoại:</strong> <span th:text="${order.customerPhone}">Số điện thoại</span></p>
+                                                <p class="mb-1"><strong>Địa chỉ:</strong> <span th:text="${order.shippingAddress}">Địa chỉ giao hàng</span></p>
+                                                <p class="mb-1"><strong>Phương thức thanh toán:</strong>
+                                                    <span th:text="${order.paymentMethod.name() == 'COD' ? 'Thanh toán khi nhận hàng' :
+                                                                   order.paymentMethod.name() == 'BANK_TRANSFER' ? 'Chuyển khoản ngân hàng' :
+                                                                   order.paymentMethod.name() == 'E_WALLET' ? 'Ví điện tử' : 'Thẻ tín dụng'}">COD</span>
+                                                </p>
+                                                <div th:if="${order.notes}" class="mt-2">
+                                                    <strong>Ghi chú:</strong> <span th:text="${order.notes}">Ghi chú</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4 text-end">
+                                                <div class="mb-2">
+                                                    <small class="text-muted">Tổng sản phẩm:</small><br>
+                                                    <span th:text="${#numbers.formatDecimal(order.totalAmount - order.shippingFee, 0, 'COMMA', 0, 'POINT')} + ' VNĐ'">499.000 VNĐ</span>
+                                                </div>
+                                                <div class="mb-2" th:if="${order.shippingFee > 0}">
+                                                    <small class="text-muted">Phí vận chuyển:</small><br>
+                                                    <span th:text="${#numbers.formatDecimal(order.shippingFee, 0, 'COMMA', 0, 'POINT')} + ' VNĐ'">30.000 VNĐ</span>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <strong>Tổng tiền:</strong><br>
+                                                    <h6 class="text-primary" th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'COMMA', 0, 'POINT')} + ' VNĐ'">529.000 VNĐ</h6>
+                                                </div>
+                                                <div>
+                                                    <a th:href="@{'/account/orders/' + ${order.id}}" class="btn btn-outline-primary btn-sm me-2">
+                                                        <i class="fas fa-eye me-1"></i>Xem chi tiết
+                                                    </a>
+                                                    <form th:if="${order.status.name() == 'PENDING'}" th:action="@{'/account/orders/' + ${order.id} + '/cancel'}" method="post" style="display:inline;">
+                                                        <button type="submit" class="btn btn-outline-danger btn-sm" onclick="return confirm('Bạn có chắc muốn hủy đơn hàng này?');">
+                                                            <i class="fas fa-times me-1"></i>Hủy đơn
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Orders Pagination (if needed) -->
+                            <!--
+                            <nav aria-label="Page navigation">
+                                <ul class="pagination justify-content-center">
+                                    <li class="page-item disabled">
+                                        <a class="page-link" href="#" tabindex="-1">«</a>
+                                    </li>
+                                    <li class="page-item active">
+                                        <a class="page-link" href="#">1</a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="#">2</a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="#">3</a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="#">»</a>
+                                    </li>
+                                </ul>
+                            </nav>
+                            -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

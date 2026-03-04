@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: layout(~{::title}, ~{::main})}">
+<head>
+    <title>Liên hệ - Vintage Pharmacy</title>
+</head>
+<body>
+    <main>
+        <!-- Hero Section -->
+        <section class="bg-primary text-white py-5">
+            <div class="container">
+                <div class="row align-items-center">
+                    <div class="col-lg-8">
+                        <h1 class="display-5 fw-bold mb-3">Liên hệ với chúng tôi</h1>
+                        <p class="lead mb-0">Chúng tôi luôn sẵn sàng hỗ trợ và tư vấn cho bạn</p>
+                    </div>
+                    <div class="col-lg-4 text-center">
+                        <i class="fas fa-phone-alt fa-5x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="py-5">
+            <div class="container">
+                <div class="row g-5">
+                    <!-- Contact Information -->
+                    <div class="col-lg-6">
+                        <h2 class="fw-bold mb-4">Thông tin liên hệ</h2>
+
+                        <!-- Address -->
+                        <div class="d-flex mb-4">
+                            <div class="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px;">
+                                <i class="fas fa-map-marker-alt text-primary"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-1">Địa chỉ</h6>
+                                <p class="text-muted mb-0">123 Đường Nguyễn Văn A, Phường 1, Quận Gò Vấp, TP.HCM</p>
+                            </div>
+                        </div>
+
+                        <!-- Phone -->
+                        <div class="d-flex mb-4">
+                            <div class="bg-success bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px;">
+                                <i class="fas fa-phone text-success"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-1">Điện thoại</h6>
+                                <p class="text-muted mb-0">
+                                    <a href="tel:+84283123456" class="text-decoration-none">028 3123 456</a><br>
+                                    <a href="tel:+84901234567" class="text-decoration-none">090 123 4567</a>
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Email -->
+                        <div class="d-flex mb-4">
+                            <div class="bg-info bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px;">
+                                <i class="fas fa-envelope text-info"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-1">Email</h6>
+                                <p class="text-muted mb-0">
+                                    <a href="mailto:info@vintagepharmacy.vn" class="text-decoration-none">info@vintagepharmacy.vn</a><br>
+                                    <a href="mailto:support@vintagepharmacy.vn" class="text-decoration-none">support@vintagepharmacy.vn</a>
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Working Hours -->
+                        <div class="d-flex mb-4">
+                            <div class="bg-warning bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px;">
+                                <i class="fas fa-clock text-warning"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-1">Giờ làm việc</h6>
+                                <p class="text-muted mb-0">
+                                    Thứ 2 - Thứ 6: 7:00 - 22:00<br>
+                                    Thứ 7 - Chủ nhật: 8:00 - 21:00
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Social Media -->
+                        <div class="mt-4">
+                            <h6 class="fw-bold mb-3">Kết nối với chúng tôi</h6>
+                            <div class="d-flex gap-3">
+                                <a href="#" class="btn btn-outline-info btn-sm">
+                                    <i class="fab fa-zalo me-2"></i>Zalo
+                                </a>
+                                <a href="#" class="btn btn-outline-success btn-sm">
+                                    <i class="fab fa-whatsapp me-2"></i>WhatsApp
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Contact Form -->
+                    <div class="col-lg-6">
+                        <div class="card border-0 shadow">
+                            <div class="card-body p-4">
+                                <h4 class="fw-bold mb-4">Gửi tin nhắn cho chúng tôi</h4>
+
+                                <form>
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label for="firstName" class="form-label">Họ *</label>
+                                            <input type="text" class="form-control" id="firstName" required>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="lastName" class="form-label">Tên *</label>
+                                            <input type="text" class="form-control" id="lastName" required>
+                                        </div>
+                                        <div class="col-12">
+                                            <label for="email" class="form-label">Email *</label>
+                                            <input type="email" class="form-control" id="email" required>
+                                        </div>
+                                        <div class="col-12">
+                                            <label for="phone" class="form-label">Số điện thoại</label>
+                                            <input type="tel" class="form-control" id="phone">
+                                        </div>
+                                        <div class="col-12">
+                                            <label for="subject" class="form-label">Chủ đề *</label>
+                                            <select class="form-select" id="subject" required>
+                                                <option value="">Chọn chủ đề</option>
+                                                <option value="consultation">Tư vấn sản phẩm</option>
+                                                <option value="order">Hỗ trợ đặt hàng</option>
+                                                <option value="complaint">Khiếu nại</option>
+                                                <option value="partnership">Hợp tác kinh doanh</option>
+                                                <option value="other">Khác</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-12">
+                                            <label for="message" class="form-label">Tin nhắn *</label>
+                                            <textarea class="form-control" id="message" rows="5" placeholder="Nhập nội dung tin nhắn của bạn..." required></textarea>
+                                        </div>
+                                        <div class="col-12">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="agree" required>
+                                                <label class="form-check-label" for="agree">
+                                                    Tôi đồng ý với <a href="#" class="text-decoration-none">chính sách bảo mật</a> *
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-12">
+                                            <button type="submit" class="btn btn-primary w-100">
+                                                <i class="fas fa-paper-plane me-2"></i>Gửi tin nhắn
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Map Section -->
+        <section class="py-5 bg-light">
+            <div class="container">
+                <h2 class="text-center fw-bold mb-4">Vị trí của chúng tôi</h2>
+                <div class="row justify-content-center">
+                    <div class="col-lg-10">
+                        <div class="card border-0 shadow">
+                            <div class="card-body p-0">
+                                <!-- Google Maps Embed - Replace with actual coordinates -->
+                                <div class="ratio ratio-21x9">
+                                    <iframe
+                                        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3918.7542124906!2d106.68426431533423!3d10.815627161345726!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x317529b6a5a5b0a9%3A0x76c42a4a2b4a5a5a!2zVGjDr3JhLCBRdWGyoCBCw65uaCBUaOG6ojIQ!5e0!3m2!1svi!2s!4v1234567890123!5m2!1svi!2s"
+                                        style="border:0;"
+                                        allowfullscreen=""
+                                        loading="lazy"
+                                        referrerpolicy="no-referrer-when-downgrade">
+                                    </iframe>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FAQ Section -->
+        <section class="py-5">
+            <div class="container">
+                <h2 class="text-center fw-bold mb-5">Câu hỏi thường gặp</h2>
+                <div class="row justify-content-center">
+                    <div class="col-lg-8">
+                        <div class="accordion" id="faqAccordion">
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                                        Làm thế nào để đặt hàng online?
+                                    </button>
+                                </h2>
+                                <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
+                                    <div class="accordion-body">
+                                        Bạn có thể đặt hàng online bằng cách thêm sản phẩm vào giỏ hàng, điền thông tin giao hàng và thanh toán. Chúng tôi sẽ giao hàng trong vòng 24-48 giờ.
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                                        Chính sách đổi trả như thế nào?
+                                    </button>
+                                </h2>
+                                <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                    <div class="accordion-body">
+                                        Chúng tôi chấp nhận đổi trả trong vòng 7 ngày đối với sản phẩm còn nguyên seal, chưa sử dụng và có hóa đơn mua hàng.
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                                        Có dịch vụ tư vấn online không?
+                                    </button>
+                                </h2>
+                                <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                    <div class="accordion-body">
+                                        Có, chúng tôi có dịch vụ tư vấn online qua chat, điện thoại hoặc email. Đội ngũ dược sĩ sẽ hỗ trợ bạn 24/7.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

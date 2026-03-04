@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" th:replace="~{admin-layout :: layout(~{::title}, ~{::content})}">
+<head>
+    <title>Chi tiết tài khoản - Admin</title>
+</head>
+<body>
+    <div th:fragment="content">
+        <div class="container-fluid">
+            <!-- Page Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-user me-2"></i>Chi tiết tài khoản</h2>
+                <a href="/admin/users" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Quay lại
+                </a>
+            </div>
+
+            <!-- Flash Messages -->
+            <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="fas fa-check-circle me-2"></i>
+                <span th:text="${success}"></span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+
+            <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                <span th:text="${error}"></span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+
+            <div class="row">
+                <!-- User Information -->
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-info-circle me-2"></i>Thông tin người dùng
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">ID:</label>
+                                    <p th:text="${user.id}" class="form-control-plaintext"></p>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Tên đăng nhập:</label>
+                                    <p th:text="${user.username}" class="form-control-plaintext"></p>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Email:</label>
+                                    <p th:text="${user.email}" class="form-control-plaintext"></p>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Họ tên:</label>
+                                    <p th:text="${user.fullName}" class="form-control-plaintext"></p>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Số điện thoại:</label>
+                                    <p th:text="${user.phone ?: 'Chưa cập nhật'}" class="form-control-plaintext"></p>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Trạng thái:</label>
+                                    <p>
+                                        <span th:if="${user.enabled}" class="badge bg-success">
+                                            <i class="fas fa-check me-1"></i>Hoạt động
+                                        </span>
+                                        <span th:unless="${user.enabled}" class="badge bg-secondary">
+                                            <i class="fas fa-times me-1"></i>Vô hiệu hóa
+                                        </span>
+                                    </p>
+                                </div>
+                                <div class="col-12 mb-3">
+                                    <label class="form-label fw-bold">Địa chỉ:</label>
+                                    <p th:text="${user.address ?: 'Chưa cập nhật'}" class="form-control-plaintext"></p>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Ngày tạo:</label>
+                                    <p th:text="${#temporals.format(user.createdAt, 'dd/MM/yyyy HH:mm:ss')}" class="form-control-plaintext"></p>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Cập nhật lần cuối:</label>
+                                    <p th:text="${#temporals.format(user.updatedAt, 'dd/MM/yyyy HH:mm:ss')}" class="form-control-plaintext"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Role Management -->
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-shield-alt me-2"></i>Quản lý quyền
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" th:action="@{/admin/users/{id}/update-roles(id=${user.id})}">
+                                <!-- CSRF Token -->
+                                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Quyền hiện tại:</label>
+                                    <div th:if="${user.roles.empty}" class="text-muted">Chưa có quyền nào</div>
+                                    <div th:unless="${user.roles.empty}">
+                                        <span th:each="role : ${user.roles}"
+                                              th:class="|badge ${role.name.name() == 'ADMIN' ? 'bg-danger' : 'bg-primary'} me-1 mb-1|"
+                                              th:text="${role.name.name()}">
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Cập nhật quyền:</label>
+                                    <div th:each="role : ${roles}" class="form-check">
+                                        <input class="form-check-input" type="checkbox"
+                                               th:id="|role_${role.id}|"
+                                               th:name="roleIds"
+                                               th:value="${role.id}"
+                                               th:checked="${user.roles.contains(role)}">
+                                        <label class="form-check-label" th:for="|role_${role.id}|" th:text="${role.name.name()}">
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-save me-1"></i>Cập nhật quyền
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Account Actions -->
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-cogs me-2"></i>Hành động
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" th:action="@{/admin/users/{id}/toggle-status(id=${user.id})}" class="mb-2">
+                                <!-- CSRF Token -->
+                                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                <button type="submit"
+                                        th:class="|btn w-100 ${user.enabled ? 'btn-warning' : 'btn-success'}|"
+                                        onclick="return confirm('Bạn có chắc chắn muốn thay đổi trạng thái tài khoản này?')">
+                                    <i th:class="|fas ${user.enabled ? 'fa-ban' : 'fa-check'} me-1|"></i>
+                                    <span th:text="${user.enabled ? 'Vô hiệu hóa' : 'Kích hoạt'}"></span>
+                                </button>
+                            </form>
+
+                            <form method="post" th:action="@{/admin/users/{id}/delete(id=${user.id})}"
+                                  th:if="${!user.roles.?[name.name() == 'ADMIN'].empty == false}">
+                                <!-- CSRF Token -->
+                                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                <button type="submit" class="btn btn-danger w-100"
+                                        onclick="return confirm('Bạn có chắc chắn muốn xóa người dùng này? Hành động này không thể hoàn tác!')">
+                                    <i class="fas fa-trash me-1"></i>Xóa tài khoản
+                                </button>
+                            </form>
+
+                            <div th:if="${!user.roles.?[name.name() == 'ADMIN'].empty}" class="alert alert-info mt-2 mb-0">
+                                <small><i class="fas fa-info-circle me-1"></i>Không thể xóa tài khoản Admin</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Orders -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-shopping-cart me-2"></i>Lịch sử đơn hàng
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div th:if="${user.orders.empty}" class="text-center py-4">
+                                <i class="fas fa-shopping-cart fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">Người dùng chưa có đơn hàng nào</p>
+                            </div>
+
+                            <div th:unless="${user.orders.empty}" class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Mã đơn hàng</th>
+                                            <th>Ngày đặt</th>
+                                            <th>Tổng tiền</th>
+                                            <th>Trạng thái</th>
+                                            <th>Hành động</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr th:each="order : ${user.orders}">
+                                            <td th:text="${order.id}"></td>
+                                            <td th:text="${#temporals.format(order.orderDate, 'dd/MM/yyyy HH:mm')}"></td>
+                                            <td th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'COMMA', 0, 'POINT')} + ' VNĐ'"></td>
+                                            <td>
+                                                <span th:class="|badge ${order.status.name() == 'COMPLETED' ? 'bg-success' :
+                                                                       order.status.name() == 'CANCELLED' ? 'bg-danger' :
+                                                                       order.status.name() == 'PENDING' ? 'bg-warning' : 'bg-info'}|"
+                                                      th:text="${order.status.name()}">
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <a th:href="@{/admin/orders/{id}(id=${order.id})}" class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-eye"></i> Xem
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

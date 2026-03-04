@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kết quả tìm kiếm - Vintage Pharmacy</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="/webjars/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .product-card {
+            border: none;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+            height: 100%;
+        }
+
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+        }
+
+        .product-image {
+            height: 200px;
+            background: linear-gradient(45deg, #f3f4f6, #e5e7eb);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #9ca3af;
+            font-size: 3rem;
+        }
+
+        .product-price {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold text-primary" href="/">
+                <i class="fas fa-heartbeat me-2"></i>Vintage Pharmacy
+            </a>
+
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/">Trang chủ</a>
+                <a class="nav-link" href="/products">Sản phẩm</a>
+                <a class="nav-link" href="/login">Đăng nhập</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container my-5">
+        <!-- Search Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h2 class="fw-bold mb-3">
+                    <i class="fas fa-search me-2"></i>Kết quả tìm kiếm:
+                    <span class="text-primary" th:text="${keyword}">keyword</span>
+                </h2>
+                <p class="text-muted">
+                    Tìm thấy <span th:text="${products.totalElements}">0</span> sản phẩm
+                </p>
+            </div>
+        </div>
+
+        <!-- Search Results -->
+        <div class="row" th:if="${products != null and products.content != null and !products.content.empty}">
+            <div class="col-lg-3 col-md-4 col-sm-6 mb-4" th:each="product : ${products.content}">
+                <div class="card product-card">
+                    <div class="product-image">
+                        <i class="fas fa-pills"></i>
+                    </div>
+                    <div class="card-body">
+                        <h6 class="card-title fw-bold" th:text="${product.name}">Tên sản phẩm</h6>
+                        <p class="card-text text-muted small" th:text="${#strings.abbreviate(product.description, 60)}">Mô tả sản phẩm...</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="product-price" th:text="${#numbers.formatDecimal(product.price, 0, 'COMMA', 0, 'POINT')} + ' VNĐ'">299.000 VNĐ</span>
+                            <button class="btn btn-primary btn-sm">
+                                <i class="fas fa-cart-plus"></i>
+                            </button>
+                        </div>
+                        <small class="text-muted d-block mt-2">
+                            <i class="fas fa-industry me-1"></i><span th:text="${product.manufacturer}">Nhà sản xuất</span>
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- No Results Message -->
+        <div class="row" th:if="${products == null or products.content == null or products.content.empty}">
+            <div class="col-12">
+                <div class="text-center py-5">
+                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">Không tìm thấy sản phẩm nào</h4>
+                    <p class="text-muted">Thử tìm kiếm với từ khóa khác hoặc xem tất cả sản phẩm.</p>
+                    <a href="/products" class="btn btn-primary">Xem tất cả sản phẩm</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="row mt-4" th:if="${products != null and products.totalPages > 1}">
+            <div class="col-12">
+                <nav>
+                    <ul class="pagination justify-content-center">
+                        <li class="page-item" th:classappend="${products.first} ? 'disabled'">
+                            <a class="page-link" th:href="@{/search(keyword=${keyword}, page=${products.number - 1})}">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        </li>
+
+                        <li class="page-item" th:each="i : ${#numbers.sequence(0, products.totalPages - 1)}"
+                            th:classappend="${i == products.number} ? 'active'">
+                            <a class="page-link" th:href="@{/search(keyword=${keyword}, page=${i})}" th:text="${i + 1}">1</a>
+                        </li>
+
+                        <li class="page-item" th:classappend="${products.last} ? 'disabled'">
+                            <a class="page-link" th:href="@{/search(keyword=${keyword}, page=${products.number + 1})}">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-white py-4 mt-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6><i class="fas fa-heartbeat me-2"></i>Vintage Pharmacy</h6>
+                    <p class="small">Chuyên cung cấp dược phẩm chức năng chất lượng cao</p>
+                </div>
+                <div class="col-md-6 text-end">
+                    <p class="small mb-0">&copy; 2025 Vintage Pharmacy. All rights reserved.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="/webjars/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+

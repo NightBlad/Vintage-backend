@@ -1,0 +1,33 @@
+package com.example.vintage.repository;
+
+import com.example.vintage.entity.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+
+@Repository
+public interface UserRepository extends JpaRepository<User, Long> {
+    
+    Optional<User> findByUsername(String username);
+    
+    Optional<User> findByEmail(String email);
+    
+    Boolean existsByUsername(String username);
+    
+    Boolean existsByEmail(String email);
+    
+    @Query("SELECT u FROM User u JOIN FETCH u.roles WHERE u.username = ?1")
+    Optional<User> findByUsernameWithRoles(String username);
+
+    // Add method to update login attempts without triggering validation
+    @Modifying
+    @Query("UPDATE User u SET u.failedAttempts = :failedAttempts, u.accountLocked = :accountLocked, u.lockTime = :lockTime WHERE u.username = :username")
+    void updateLoginAttempts(@Param("username") String username,
+                           @Param("failedAttempts") Integer failedAttempts,
+                           @Param("accountLocked") Boolean accountLocked,
+                           @Param("lockTime") java.time.LocalDateTime lockTime);
+}

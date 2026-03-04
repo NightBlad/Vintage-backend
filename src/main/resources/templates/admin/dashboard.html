@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" th:replace="~{admin-layout :: layout(~{::title}, ~{::content})}">
+<head>
+    <title>Admin Dashboard - Vintage Pharmacy</title>
+</head>
+<body>
+    <div th:fragment="content">
+        <div class="container-fluid">
+            <!-- Page Header -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <h2 class="fw-bold">
+                        <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                    </h2>
+                    <p class="text-muted">Tổng quan hệ thống quản lý dược phẩm</p>
+                </div>
+            </div>
+
+            <!-- Statistics Cards -->
+            <div class="row mb-5">
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <div class="card dashboard-card">
+                        <div class="card-body d-flex align-items-center">
+                            <div class="stat-icon bg-primary-gradient me-3">
+                                <i class="fas fa-pills"></i>
+                            </div>
+                            <div>
+                                <h3 class="mb-0" th:text="${totalProducts}">0</h3>
+                                <small class="text-muted">Tổng sản phẩm</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <div class="card dashboard-card">
+                        <div class="card-body d-flex align-items-center">
+                            <div class="stat-icon bg-success-gradient me-3">
+                                <i class="fas fa-folder"></i>
+                            </div>
+                            <div>
+                                <h3 class="mb-0" th:text="${totalCategories}">0</h3>
+                                <small class="text-muted">Danh mục</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <div class="card dashboard-card">
+                        <div class="card-body d-flex align-items-center">
+                            <div class="stat-icon bg-warning-gradient me-3">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div>
+                                <h3 class="mb-0" th:text="${totalUsers}">0</h3>
+                                <small class="text-muted">Người dùng</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <div class="card dashboard-card">
+                        <div class="card-body d-flex align-items-center">
+                            <div class="stat-icon bg-danger-gradient me-3">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                            <div>
+                                <h3 class="mb-0" th:text="${lowStockProducts?.size() ?: 0}">0</h3>
+                                <small class="text-muted">Sản phẩm sắp hết</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="row mb-5">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-rocket me-2"></i>Thao tác nhanh
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3 mb-3">
+                                    <a href="/admin/products/add" class="btn btn-primary w-100">
+                                        <i class="fas fa-plus me-2"></i>Thêm sản phẩm
+                                    </a>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <a href="/admin/categories/add" class="btn btn-success w-100">
+                                        <i class="fas fa-plus me-2"></i>Thêm danh mục
+                                    </a>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <a href="/admin/orders" class="btn btn-info w-100">
+                                        <i class="fas fa-shopping-cart me-2"></i>Xem đơn hàng
+                                    </a>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <a href="/admin/users" class="btn btn-warning w-100">
+                                        <i class="fas fa-user-cog me-2"></i>Quản lý tài khoản
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Low Stock Products Alert -->
+            <div th:if="${lowStockProducts != null and !lowStockProducts.empty}" class="row mb-4">
+                <div class="col-12">
+                    <div class="card border-warning">
+                        <div class="card-header bg-warning text-dark">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Cảnh báo: Sản phẩm sắp hết hàng
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Tên sản phẩm</th>
+                                            <th>Số lượng còn lại</th>
+                                            <th>Thao tác</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr th:each="product : ${lowStockProducts}">
+                                            <td th:text="${product.name}"></td>
+                                            <td>
+                                                <span class="badge bg-warning" th:text="${product.stockQuantity}"></span>
+                                            </td>
+                                            <td>
+                                                <a th:href="@{/admin/products/edit/{id}(id=${product.id})}"
+                                                   class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-edit"></i> Cập nhật
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Featured Products -->
+            <div th:if="${featuredProducts != null and !featuredProducts.empty}" class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-star me-2"></i>Sản phẩm nổi bật
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div th:each="product : ${featuredProducts}" class="col-lg-3 col-md-4 col-sm-6 mb-3">
+                                    <div class="card">
+                                        <img th:src="@{${product.imageUrl}}"
+                                             th:alt="${product.name}"
+                                             class="card-img-top"
+                                             style="height: 150px; object-fit: cover;">
+                                        <div class="card-body p-3">
+                                            <h6 class="card-title" th:text="${product.name}"></h6>
+                                            <p class="card-text small text-muted" th:text="${#strings.abbreviate(product.description, 60)}"></p>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <small class="text-primary fw-bold"
+                                                       th:text="${#numbers.formatDecimal(product.price, 0, 'COMMA', 0, 'POINT')} + ' VNĐ'"></small>
+                                                <a th:href="@{/admin/products/edit/{id}(id=${product.id})}"
+                                                   class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <style>
+            .dashboard-card {
+                border: none;
+                border-radius: 15px;
+                box-shadow: 0 5px 25px rgba(0,0,0,0.08);
+                transition: all 0.3s ease;
+            }
+
+            .dashboard-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+            }
+
+            .stat-icon {
+                width: 60px;
+                height: 60px;
+                border-radius: 15px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.5rem;
+                color: white;
+            }
+
+            .bg-primary-gradient {
+                background: linear-gradient(135deg, #2563eb, #0ea5e9);
+            }
+
+            .bg-success-gradient {
+                background: linear-gradient(135deg, #059669, #22c55e);
+            }
+
+            .bg-warning-gradient {
+                background: linear-gradient(135deg, #d97706, #f59e0b);
+            }
+
+            .bg-danger-gradient {
+                background: linear-gradient(135deg, #dc2626, #ef4444);
+            }
+        </style>
+    </div>
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" th:replace="~{admin-layout :: layout(~{::title}, ~{::main})}">
+<head>
+    <title>Quản lý đơn hàng</title>
+</head>
+<body>
+    <main>
+        <div class="container-fluid py-4">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="h3 mb-1">
+                        <i class="fas fa-shopping-cart me-2 text-primary"></i>
+                        Quản lý đơn hàng
+                    </h2>
+                    <p class="text-muted mb-0">Xem và cập nhật trạng thái đơn hàng</p>
+                </div>
+            </div>
+
+            <!-- Alert Messages -->
+            <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="fas fa-check-circle me-2"></i>
+                <span th:text="${success}"></span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+
+            <!-- Orders Table -->
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-table me-2"></i>
+                        Danh sách đơn hàng
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Mã đơn</th>
+                                    <th>Khách hàng</th>
+                                    <th>Ngày đặt</th>
+                                    <th>Tổng tiền</th>
+                                    <th>Trạng thái</th>
+                                    <th>Thanh toán</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="order : ${orders.content}">
+                                    <td>
+                                        <code th:text="${order.orderNumber}"></code>
+                                    </td>
+                                    <td>
+                                        <div>
+                                            <span th:text="${order.customerName}" class="fw-medium"></span>
+                                            <br>
+                                            <small class="text-muted" th:text="${order.customerPhone}"></small>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span th:text="${#temporals.format(order.orderDate, 'dd/MM/yyyy HH:mm')}"></span>
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold text-primary"
+                                              th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'COMMA', 0, 'POINT')} + ' VNĐ'">
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span th:switch="${order.status.name()}">
+                                            <span th:case="'PENDING'" class="badge bg-warning text-dark">
+                                                <i class="fas fa-clock me-1"></i>Chờ xử lý
+                                            </span>
+                                            <span th:case="'CONFIRMED'" class="badge bg-info">
+                                                <i class="fas fa-check me-1"></i>Đã xác nhận
+                                            </span>
+                                            <span th:case="'PROCESSING'" class="badge bg-primary">
+                                                <i class="fas fa-cog me-1"></i>Đang xử lý
+                                            </span>
+                                            <span th:case="'SHIPPED'" class="badge bg-secondary">
+                                                <i class="fas fa-truck me-1"></i>Đã giao
+                                            </span>
+                                            <span th:case="'DELIVERED'" class="badge bg-success">
+                                                <i class="fas fa-check-circle me-1"></i>Hoàn thành
+                                            </span>
+                                            <span th:case="'CANCELLED'" class="badge bg-danger">
+                                                <i class="fas fa-times me-1"></i>Đã hủy
+                                            </span>
+                                            <span th:case="*" class="badge bg-light text-dark" th:text="${order.status.name()}"></span>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span th:switch="${order.paymentStatus.name()}">
+                                            <span th:case="'UNPAID'" class="badge bg-danger">
+                                                <i class="fas fa-times me-1"></i>Chưa thanh toán
+                                            </span>
+                                            <span th:case="'PAID'" class="badge bg-success">
+                                                <i class="fas fa-check me-1"></i>Đã thanh toán
+                                            </span>
+                                            <span th:case="'REFUNDED'" class="badge bg-warning text-dark">
+                                                <i class="fas fa-undo me-1"></i>Đã hoàn tiền
+                                            </span>
+                                            <span th:case="*" class="badge bg-light text-dark" th:text="${order.paymentStatus.name()}"></span>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <a th:href="@{/admin/orders/{id}(id=${order.id})}"
+                                           class="btn btn-sm btn-outline-primary" title="Xem chi tiết">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                <tr th:if="${#lists.isEmpty(orders.content)}">
+                                    <td colspan="7" class="text-center py-4">
+                                        <i class="fas fa-shopping-cart fa-3x text-muted mb-3"></i>
+                                        <p class="text-muted mb-0">Chưa có đơn hàng nào</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <nav th:if="${orders.totalPages > 1}" aria-label="Page navigation">
+                        <ul class="pagination justify-content-center">
+                            <li class="page-item" th:classappend="${!orders.hasPrevious()} ? 'disabled'">
+                                <a class="page-link" th:href="@{/admin/orders(page=${orders.number - 1}, size=${orders.size}, status=${selectedStatus})}">
+                                    <i class="fas fa-chevron-left"></i>
+                                </a>
+                            </li>
+
+                            <li th:each="page : ${#numbers.sequence(0, orders.totalPages - 1)}"
+                                class="page-item"
+                                th:classappend="${page == orders.number} ? 'active'">
+                                <a class="page-link"
+                                   th:href="@{/admin/orders(page=${page}, size=${orders.size}, status=${selectedStatus})}"
+                                   th:text="${page + 1}">1</a>
+                            </li>
+
+                            <li class="page-item" th:classappend="${!orders.hasNext()} ? 'disabled'">
+                                <a class="page-link" th:href="@{/admin/orders(page=${orders.number + 1}, size=${orders.size}, status=${selectedStatus})}">
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

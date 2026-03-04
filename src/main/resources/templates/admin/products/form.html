@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" th:replace="~{admin-layout :: layout(~{::title}, ~{::main})}">
+<head>
+    <title th:text="${product.id != null ? 'Sửa sản phẩm' : 'Thêm sản phẩm'}">Quản lý sản phẩm</title>
+</head>
+<body>
+    <main>
+        <div class="container-fluid py-4">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="h3 mb-1">
+                        <i class="fas fa-pills me-2 text-primary"></i>
+                        <span th:text="${product.id != null ? 'Sửa sản phẩm' : 'Thêm sản phẩm'}"></span>
+                    </h2>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item"><a href="/admin/dashboard">Dashboard</a></li>
+                            <li class="breadcrumb-item"><a href="/admin/products">Sản phẩm</a></li>
+                            <li class="breadcrumb-item active" th:text="${product.id != null ? 'Sửa' : 'Thêm'}"></li>
+                        </ol>
+                    </nav>
+                </div>
+                <a href="/admin/products" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Quay lại
+                </a>
+            </div>
+
+            <!-- Alert Messages -->
+            <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="fas fa-check-circle me-2"></i>
+                <span th:text="${success}"></span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+
+            <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                <span th:text="${error}"></span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+
+            <!-- Product Form -->
+            <form th:action="${product.id != null ? '/admin/products/edit/' + product.id : '/admin/products/add'}"
+                  th:object="${product}" method="post" enctype="multipart/form-data">
+
+                <div class="row">
+                    <!-- Main Information -->
+                    <div class="col-lg-8">
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Thông tin cơ bản
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <!-- Product Name -->
+                                    <div class="col-md-8 mb-3">
+                                        <label for="name" class="form-label">
+                                            <i class="fas fa-tag me-1"></i>
+                                            Tên sản phẩm <span class="text-danger">*</span>
+                                        </label>
+                                        <input type="text"
+                                               class="form-control"
+                                               th:classappend="${#fields.hasErrors('name')} ? 'is-invalid' : ''"
+                                               id="name"
+                                               th:field="*{name}"
+                                               placeholder="Nhập tên sản phẩm">
+                                        <div th:if="${#fields.hasErrors('name')}"
+                                             class="invalid-feedback"
+                                             th:errors="*{name}">
+                                        </div>
+                                    </div>
+
+                                    <!-- Product Code -->
+                                    <div class="col-md-4 mb-3">
+                                        <label for="productCode" class="form-label">
+                                            <i class="fas fa-barcode me-1"></i>
+                                            Mã sản phẩm <span class="text-danger">*</span>
+                                        </label>
+                                        <input type="text"
+                                               class="form-control"
+                                               th:classappend="${#fields.hasErrors('productCode')} ? 'is-invalid' : ''"
+                                               id="productCode"
+                                               th:field="*{productCode}"
+                                               placeholder="SKU001">
+                                        <div th:if="${#fields.hasErrors('productCode')}"
+                                             class="invalid-feedback"
+                                             th:errors="*{productCode}">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Description -->
+                                <div class="mb-3">
+                                    <label for="description" class="form-label">
+                                        <i class="fas fa-align-left me-1"></i>
+                                        Mô tả sản phẩm
+                                    </label>
+                                    <textarea class="form-control"
+                                              id="description"
+                                              th:field="*{description}"
+                                              rows="4"
+                                              placeholder="Nhập mô tả chi tiết về sản phẩm"></textarea>
+                                </div>
+
+                                <!-- Ingredients -->
+                                <div class="mb-3">
+                                    <label for="ingredients" class="form-label">
+                                        <i class="fas fa-flask me-1"></i>
+                                        Thành phần
+                                    </label>
+                                    <textarea class="form-control"
+                                              id="ingredients"
+                                              th:field="*{ingredients}"
+                                              rows="3"
+                                              placeholder="Nhập thành phần của sản phẩm"></textarea>
+                                </div>
+
+                                <!-- Usage -->
+                                <div class="mb-3">
+                                    <label for="usage" class="form-label">
+                                        <i class="fas fa-prescription me-1"></i>
+                                        Cách sử dụng
+                                    </label>
+                                    <textarea class="form-control"
+                                              id="usage"
+                                              th:field="*{usage}"
+                                              rows="3"
+                                              placeholder="Hướng dẫn cách sử dụng sản phẩm"></textarea>
+                                </div>
+
+                                <!-- Contraindications -->
+                                <div class="mb-3">
+                                    <label for="contraindications" class="form-label">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>
+                                        Chống chỉ định
+                                    </label>
+                                    <textarea class="form-control"
+                                              id="contraindications"
+                                              th:field="*{contraindications}"
+                                              rows="2"
+                                              placeholder="Những trường hợp không nên sử dụng"></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Manufacturer Information -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-industry me-2"></i>
+                                    Thông tin nhà sản xuất
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="manufacturer" class="form-label">
+                                            <i class="fas fa-building me-1"></i>
+                                            Nhà sản xuất
+                                        </label>
+                                        <input type="text"
+                                               class="form-control"
+                                               id="manufacturer"
+                                               th:field="*{manufacturer}"
+                                               placeholder="Tên nhà sản xuất">
+                                    </div>
+
+                                    <div class="col-md-6 mb-3">
+                                        <label for="country" class="form-label">
+                                            <i class="fas fa-globe me-1"></i>
+                                            Nước sản xuất
+                                        </label>
+                                        <input type="text"
+                                               class="form-control"
+                                               id="country"
+                                               th:field="*{country}"
+                                               placeholder="Việt Nam">
+                                    </div>
+
+                                    <div class="col-md-6 mb-3">
+                                        <label for="dosageForm" class="form-label">
+                                            <i class="fas fa-capsules me-1"></i>
+                                            Dạng bào chế
+                                        </label>
+                                        <input type="text"
+                                               class="form-control"
+                                               id="dosageForm"
+                                               th:field="*{dosageForm}"
+                                               placeholder="Viên nang, chai siro...">
+                                    </div>
+
+                                    <div class="col-md-6 mb-3">
+                                        <label for="packaging" class="form-label">
+                                            <i class="fas fa-box me-1"></i>
+                                            Quy cách đóng gói
+                                        </label>
+                                        <input type="text"
+                                               class="form-control"
+                                               id="packaging"
+                                               th:field="*{packaging}"
+                                               placeholder="Hộp 30 viên, chai 100ml...">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sidebar -->
+                    <div class="col-lg-4">
+                        <!-- Price & Inventory -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-dollar-sign me-2"></i>
+                                    Giá & Tồn kho
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <!-- Price -->
+                                <div class="mb-3">
+                                    <label for="price" class="form-label">
+                                        Giá bán <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <input type="number"
+                                               class="form-control"
+                                               th:classappend="${#fields.hasErrors('price')} ? 'is-invalid' : ''"
+                                               id="price"
+                                               th:field="*{price}"
+                                               step="0.01"
+                                               min="0"
+                                               max="9999999999999"
+                                               placeholder="0.00">
+                                        <span class="input-group-text">VNĐ</span>
+                                        <div th:if="${#fields.hasErrors('price')}"
+                                             class="invalid-feedback"
+                                             th:errors="*{price}">
+                                        </div>
+                                    </div>
+                                    <div class="form-text">Giá tối đa: 9,999,999,999,999 VNĐ</div>
+                                </div>
+
+                                <!-- Sale Price -->
+                                <div class="mb-3">
+                                    <label for="salePrice" class="form-label">
+                                        Giá khuyến mãi
+                                    </label>
+                                    <div class="input-group">
+                                        <input type="number"
+                                               class="form-control"
+                                               id="salePrice"
+                                               th:field="*{salePrice}"
+                                               th:classappend="${#fields.hasErrors('salePrice')} ? 'is-invalid' : ''"
+                                               step="0.01"
+                                               min="0"
+                                               max="9999999999999"
+                                               placeholder="0.00">
+                                        <span class="input-group-text">VNĐ</span>
+                                        <div th:if="${#fields.hasErrors('salePrice')}"
+                                             class="invalid-feedback"
+                                             th:errors="*{salePrice}">
+                                        </div>
+                                        <div id="salePriceError" class="invalid-feedback" style="display: none;"></div>
+                                    </div>
+                                    <div class="form-text">Để trống nếu không có khuyến mãi. Giá khuyến mãi phải nhỏ hơn giá bán.</div>
+                                </div>
+
+                                <!-- Stock Quantity -->
+                                <div class="mb-3">
+                                    <label for="stockQuantity" class="form-label">
+                                        Số lượng tồn kho <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="number"
+                                           class="form-control"
+                                           th:classappend="${#fields.hasErrors('stockQuantity')} ? 'is-invalid' : ''"
+                                           id="stockQuantity"
+                                           th:field="*{stockQuantity}"
+                                           min="0"
+                                           placeholder="0">
+                                    <div th:if="${#fields.hasErrors('stockQuantity')}"
+                                         class="invalid-feedback"
+                                         th:errors="*{stockQuantity}">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Category -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-folder me-2"></i>
+                                    Danh mục
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label for="category" class="form-label">
+                                        Danh mục sản phẩm
+                                    </label>
+                                    <select class="form-select"
+                                            id="category"
+                                            th:field="*{category}">
+                                        <option value="">Chọn danh mục</option>
+                                        <option th:each="cat : ${categories}"
+                                                th:value="${cat.id}"
+                                                th:text="${cat.name}"
+                                                th:selected="${product.category != null and product.category.id == cat.id}">
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Settings -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-cogs me-2"></i>
+                                    Cài đặt
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-check form-switch mb-3">
+                                    <input type="checkbox"
+                                           class="form-check-input"
+                                           id="active"
+                                           th:field="*{active}"
+                                           checked>
+                                    <label class="form-check-label" for="active">
+                                        <i class="fas fa-eye me-1"></i>
+                                        Kích hoạt sản phẩm
+                                    </label>
+                                </div>
+
+                                <div class="form-check form-switch mb-3">
+                                    <input type="checkbox"
+                                           class="form-check-input"
+                                           id="featured"
+                                           th:field="*{featured}">
+                                    <label class="form-check-label" for="featured">
+                                        <i class="fas fa-star me-1"></i>
+                                        Sản phẩm nổi bật
+                                    </label>
+                                </div>
+
+                                <div class="form-check form-switch">
+                                    <input type="checkbox"
+                                           class="form-check-input"
+                                           id="prescriptionRequired"
+                                           th:field="*{prescriptionRequired}">
+                                    <label class="form-check-label" for="prescriptionRequired">
+                                        <i class="fas fa-prescription-bottle-alt me-1"></i>
+                                        Cần toa bác sĩ
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Product Image -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-image me-2"></i>
+                                    Hình ảnh sản phẩm
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <!-- Current Image Display -->
+                                <div class="mb-3" th:if="${product.imageUrl != null and product.imageUrl != ''}">
+                                    <label class="form-label">Ảnh hiện tại:</label>
+                                    <div class="text-center">
+                                        <img th:src="@{${product.imageUrl}}" 
+                                             alt="Product Image" 
+                                             class="img-fluid rounded border"
+                                             style="max-height: 200px; object-fit: cover;">
+                                    </div>
+                                </div>
+
+                                <!-- Image Upload -->
+                                <div class="mb-3">
+                                    <label for="imageFile" class="form-label">
+                                        <i class="fas fa-upload me-1"></i>
+                                        <span th:text="${product.imageUrl != null and product.imageUrl != ''} ? 'Thay đổi ảnh' : 'Chọn ảnh sản phẩm'">Chọn ảnh sản phẩm</span>
+                                    </label>
+                                    <input type="file"
+                                           class="form-control"
+                                           th:classappend="${#fields.hasErrors('imageUrl')} ? 'is-invalid' : ''"
+                                           id="imageFile"
+                                           name="imageFile"
+                                           accept="image/*"
+                                           onchange="previewImage(this)">
+                                    <div th:if="${#fields.hasErrors('imageUrl')}"
+                                         class="invalid-feedback"
+                                         th:errors="*{imageUrl}">
+                                    </div>
+                                    <div class="form-text">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Chấp nhận: JPG, PNG, GIF, WEBP. Tối đa 5MB.
+                                    </div>
+                                </div>
+
+                                <!-- Image Preview -->
+                                <div id="imagePreview" class="text-center" style="display: none;">
+                                    <label class="form-label">Xem trước:</label>
+                                    <div>
+                                        <img id="previewImg" 
+                                             src="#" 
+                                             alt="Preview" 
+                                             class="img-fluid rounded border"
+                                             style="max-height: 200px; object-fit: cover;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <a href="/admin/products" class="btn btn-outline-secondary">
+                        <i class="fas fa-times me-2"></i>Hủy
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>
+                        <span th:text="${product.id != null ? 'Cập nhật' : 'Thêm mới'}">Thêm mới</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- JavaScript for Image Preview -->
+        <script>
+        function previewImage(input) {
+            const preview = document.getElementById('imagePreview');
+            const previewImg = document.getElementById('previewImg');
+            
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    previewImg.src = e.target.result;
+                    preview.style.display = 'block';
+                };
+                
+                reader.readAsDataURL(input.files[0]);
+            } else {
+                preview.style.display = 'none';
+            }
+        }
+
+        // Price validation
+        function validatePrices() {
+            const priceInput = document.getElementById('price');
+            const salePriceInput = document.getElementById('salePrice');
+            const salePriceError = document.getElementById('salePriceError');
+
+            const price = parseFloat(priceInput.value) || 0;
+            const salePrice = parseFloat(salePriceInput.value) || 0;
+
+            if (salePrice > 0 && salePrice >= price) {
+                salePriceInput.classList.add('is-invalid');
+                salePriceError.textContent = 'Giá khuyến mãi phải nhỏ hơn giá bán';
+                salePriceError.style.display = 'block';
+                return false;
+            } else {
+                salePriceInput.classList.remove('is-invalid');
+                salePriceError.style.display = 'none';
+                return true;
+            }
+        }
+
+        // Add event listeners when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            const priceInput = document.getElementById('price');
+            const salePriceInput = document.getElementById('salePrice');
+
+            priceInput.addEventListener('input', validatePrices);
+            salePriceInput.addEventListener('input', validatePrices);
+
+            // Validate on form submit
+            const form = document.querySelector('form');
+            form.addEventListener('submit', function(e) {
+                if (!validatePrices()) {
+                    e.preventDefault();
+                    return false;
+                }
+            });
+        });
+        </script>
+    </main>
+</body>
+</html>

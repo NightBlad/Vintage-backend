@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: layout(~{::title}, ~{::main})}">
+<head>
+    <title>Chi tiết đơn hàng - Vintage Pharmacy</title>
+</head>
+<body>
+<main>
+    <div class="container my-5">
+        <div class="row mb-4">
+            <div class="col-12">
+                <h2 class="fw-bold mb-3">
+                    <i class="fas fa-shopping-bag me-2 text-primary"></i>
+                    Chi tiết đơn hàng
+                </h2>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="/">Trang chủ</a></li>
+                        <li class="breadcrumb-item"><a href="/account/orders">Đơn hàng của tôi</a></li>
+                        <li class="breadcrumb-item active">Chi tiết đơn hàng</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header bg-light">
+                <strong th:text="'Đơn hàng #' + ${order.orderNumber}">Đơn hàng #DH001</strong>
+                <span class="badge ms-2" th:class="${order.status.name() == 'PENDING' ? 'bg-warning' :
+                                                    order.status.name() == 'CONFIRMED' ? 'bg-info' :
+                                                    order.status.name() == 'SHIPPING' ? 'bg-primary' :
+                                                    order.status.name() == 'DELIVERED' ? 'bg-success' : 'bg-danger'}"
+                      th:text="${order.status.name() == 'PENDING' ? 'Chờ xác nhận' :
+                               order.status.name() == 'CONFIRMED' ? 'Đã xác nhận' :
+                               order.status.name() == 'SHIPPING' ? 'Đang giao hàng' :
+                               order.status.name() == 'DELIVERED' ? 'Đã giao' : 'Đã hủy'}">Chờ xác nhận</span>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h6>Thông tin giao hàng:</h6>
+                        <p><strong>Người nhận:</strong> <span th:text="${order.customerName}">Tên khách hàng</span></p>
+                        <p><strong>Số điện thoại:</strong> <span th:text="${order.customerPhone}">Số điện thoại</span></p>
+                        <p><strong>Địa chỉ:</strong> <span th:text="${order.shippingAddress}">Địa chỉ giao hàng</span></p>
+                        <p><strong>Phương thức thanh toán:</strong>
+                            <span th:text="${order.paymentMethod.name() == 'COD' ? 'Thanh toán khi nhận hàng' :
+                                           order.paymentMethod.name() == 'BANK_TRANSFER' ? 'Chuyển khoản ngân hàng' :
+                                           order.paymentMethod.name() == 'E_WALLET' ? 'Ví điện tử' : 'Thẻ tín dụng'}">COD</span>
+                        </p>
+                        <div th:if="${order.notes}">
+                            <strong>Ghi chú:</strong> <span th:text="${order.notes}">Ghi chú</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Thông tin đơn hàng:</h6>
+                        <p><strong>Mã đơn hàng:</strong> <span th:text="${order.orderNumber}">DH001</span></p>
+                        <p><strong>Ngày đặt:</strong> <span th:text="${#temporals.format(order.orderDate, 'dd/MM/yyyy HH:mm')}">01/01/2024</span></p>
+                        <p><strong>Trạng thái:</strong> <span th:text="${order.status}">PENDING</span></p>
+                    </div>
+                </div>
+                <h6>Danh sách sản phẩm:</h6>
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle">
+                        <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>Sản phẩm</th>
+                            <th>Đơn giá</th>
+                            <th>Số lượng</th>
+                            <th>Thành tiền</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="item, iterStat : ${order.orderItems}">
+                            <td th:text="${iterStat.count}">1</td>
+                            <td>
+                                <span th:text="${item.product.name}">Tên sản phẩm</span>
+                            </td>
+                            <td th:text="${#numbers.formatDecimal(item.price, 0, 'COMMA', 0, 'POINT')} + ' VNĐ'">100.000 VNĐ</td>
+                            <td th:text="${item.quantity}">1</td>
+                            <td th:text="${#numbers.formatDecimal(item.totalPrice, 0, 'COMMA', 0, 'POINT')} + ' VNĐ'">100.000 VNĐ</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="row justify-content-end">
+                    <div class="col-md-6">
+                        <ul class="list-group">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span>Tạm tính</span>
+                                <span th:text="${#numbers.formatDecimal(order.totalAmount - order.shippingFee, 0, 'COMMA', 0, 'POINT')} + ' VNĐ'">499.000 VNĐ</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center" th:if="${order.shippingFee > 0}">
+                                <span>Phí vận chuyển</span>
+                                <span th:text="${#numbers.formatDecimal(order.shippingFee, 0, 'COMMA', 0, 'POINT')} + ' VNĐ'">30.000 VNĐ</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <strong>Tổng tiền</strong>
+                                <strong class="text-primary" th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'COMMA', 0, 'POINT')} + ' VNĐ'">529.000 VNĐ</strong>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <a href="/account/orders" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Quay lại danh sách đơn hàng
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+</body>
+</html>
+

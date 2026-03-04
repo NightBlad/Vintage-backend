@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" th:replace="~{admin-layout :: layout(~{::title}, ~{::main})}">
+<head>
+    <title>Quản lý danh mục</title>
+</head>
+<body>
+    <main>
+        <div class="container-fluid py-4">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="h3 mb-1">
+                        <i class="fas fa-list-alt me-2 text-primary"></i>
+                        Quản lý danh mục
+                    </h2>
+                    <p class="text-muted mb-0">Thêm, sửa, xóa danh mục sản phẩm</p>
+                </div>
+                <a href="/admin/categories/add" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Thêm danh mục
+                </a>
+            </div>
+
+            <!-- Alert Messages -->
+            <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="fas fa-check-circle me-2"></i>
+                <span th:text="${success}"></span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+
+            <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                <span th:text="${error}"></span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+
+            <!-- Categories Table -->
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-table me-2"></i>
+                        Danh sách danh mục
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Tên danh mục</th>
+                                    <th>Mô tả</th>
+                                    <th>Trạng thái</th>
+                                    <th>Ngày tạo</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="category, iterStat : ${categories}">
+                                    <td th:text="${iterStat.count}"></td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-folder text-warning me-2"></i>
+                                            <span th:text="${category.name}" class="fw-medium"></span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span th:text="${category.description}" class="text-muted"></span>
+                                    </td>
+                                    <td>
+                                        <span th:if="${category.active}" class="badge bg-success">
+                                            <i class="fas fa-check me-1"></i>Hoạt động
+                                        </span>
+                                        <span th:unless="${category.active}" class="badge bg-secondary">
+                                            <i class="fas fa-times me-1"></i>Không hoạt động
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted" th:text="${#temporals.format(category.createdAt, 'dd/MM/yyyy HH:mm')}"></small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <a th:href="@{/admin/categories/edit/{id}(id=${category.id})}"
+                                               class="btn btn-sm btn-outline-primary" title="Sửa">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-danger"
+                                                    th:onclick="'confirmDelete(' + ${category.id} + ')'"
+                                                    title="Xóa">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr th:if="${#lists.isEmpty(categories)}">
+                                    <td colspan="6" class="text-center py-4">
+                                        <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
+                                        <p class="text-muted mb-0">Chưa có danh mục nào</p>
+                                        <a href="/admin/categories/add" class="btn btn-primary mt-3">
+                                            <i class="fas fa-plus me-2"></i>Thêm danh mục đầu tiên
+                                        </a>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete Confirmation Modal -->
+        <div class="modal fade" id="deleteModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                            Xác nhận xóa
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Bạn có chắc chắn muốn xóa danh mục này không?</p>
+                        <p class="text-muted small">Danh mục sẽ được đánh dấu là không hoạt động và không hiển thị trên website.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                        <form id="deleteForm" method="post" style="display: inline;">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash me-2"></i>Xóa
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            function confirmDelete(categoryId) {
+                const deleteForm = document.getElementById('deleteForm');
+                deleteForm.action = '/admin/categories/delete/' + categoryId;
+
+                const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+                deleteModal.show();
+            }
+        </script>
+    </main>
+</body>
+</html>
