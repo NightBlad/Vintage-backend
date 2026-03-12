@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -78,10 +79,7 @@ public class ApiAdminController {
                     m.put("active", p.isActive());
                     m.put("featured", p.isFeatured());
                     m.put("imageUrl", p.getImageUrl() != null ? "/uploads/" + p.getImageUrl() : null);
-                    if (p.getCategory() != null) {
-                        m.put("categoryId", p.getCategory().getId());
-                        m.put("categoryName", p.getCategory().getName());
-                    }
+                    appendProductCategoryInfo(m, p);
                     return m;
                 }).collect(Collectors.toList()),
                 "totalElements", products.getTotalElements(),
@@ -115,10 +113,7 @@ public class ApiAdminController {
                     m.put("prescriptionRequired", p.isPrescriptionRequired());
                     m.put("active", p.isActive());
                     m.put("featured", p.isFeatured());
-                    if (p.getCategory() != null) {
-                        m.put("categoryId", p.getCategory().getId());
-                        m.put("categoryName", p.getCategory().getName());
-                    }
+                    appendProductCategoryInfo(m, p);
                     return ResponseEntity.ok((Object) m);
                 })
                 .orElse(ResponseEntity.notFound().build());
@@ -140,6 +135,8 @@ public class ApiAdminController {
             @RequestParam(required = false) String dosageForm,
             @RequestParam(required = false) String packaging,
             @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Long mainCategoryId,
+            @RequestParam(required = false) Long subCategoryId,
             @RequestParam(defaultValue = "false") boolean prescriptionRequired,
             @RequestParam(defaultValue = "true") boolean active,
             @RequestParam(defaultValue = "false") boolean featured,
@@ -167,8 +164,13 @@ public class ApiAdminController {
         product.setActive(active);
         product.setFeatured(featured);
 
-        if (categoryId != null) {
-            categoryRepository.findById(categoryId).ifPresent(product::setCategory);
+        try {
+            product.setCategory(resolveProductCategory(categoryId, mainCategoryId, subCategoryId));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+        if (product.getCategory() == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Vui lòng chọn danh mục chính hoặc danh mục phụ cho sản phẩm"));
         }
 
         if (imageFile != null && !imageFile.isEmpty()) {
@@ -203,6 +205,8 @@ public class ApiAdminController {
             @RequestParam(required = false) String dosageForm,
             @RequestParam(required = false) String packaging,
             @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Long mainCategoryId,
+            @RequestParam(required = false) Long subCategoryId,
             @RequestParam(defaultValue = "false") boolean prescriptionRequired,
             @RequestParam(defaultValue = "true") boolean active,
             @RequestParam(defaultValue = "false") boolean featured,
@@ -227,10 +231,13 @@ public class ApiAdminController {
         product.setActive(active);
         product.setFeatured(featured);
 
-        if (categoryId != null) {
-            categoryRepository.findById(categoryId).ifPresent(product::setCategory);
-        } else {
-            product.setCategory(null);
+        try {
+            product.setCategory(resolveProductCategory(categoryId, mainCategoryId, subCategoryId));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+        if (product.getCategory() == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Vui lòng chọn danh mục chính hoặc danh mục phụ cho sản phẩm"));
         }
 
         if (imageFile != null && !imageFile.isEmpty()) {
@@ -266,31 +273,41 @@ public class ApiAdminController {
 
     @GetMapping("/categories")
     public ResponseEntity<?> listCategories() {
-        return ResponseEntity.ok(categoryRepository.findAll().stream().map(c -> {
-            Map<String, Object> m = new java.util.HashMap<>();
-            m.put("id", c.getId());
-            m.put("name", c.getName());
-            m.put("description", c.getDescription());
-            m.put("active", c.isActive());
-            m.put("displayOrder", c.getDisplayOrder());
-            m.put("productCount", c.getProducts() != null ? c.getProducts().size() : 0);
-            return m;
-        }).collect(Collectors.toList()));
+        List<Category> mainCategories = categoryRepository.findAll().stream()
+                .filter(c -> c.getParent() == null)
+                .sorted(Comparator.comparing((Category c) -> c.getDisplayOrder() != null ? c.getDisplayOrder() : 0)
+                        .thenComparing(Category::getName))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(mainCategories.stream().map(c -> toCategoryAdminSummary(c, true)).collect(Collectors.toList()));
     }
 
     @PostMapping("/categories")
     public ResponseEntity<?> createCategory(@RequestBody Map<String, Object> body) {
         String name = (String) body.get("name");
+        Long parentId = body.get("parentId") != null ? Long.valueOf(body.get("parentId").toString()) : null;
         if (name == null || name.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Tên danh mục không được để trống"));
         }
-        if (categoryRepository.existsByName(name)) {
+        if (categoryRepository.existsByName(name.trim())) {
             return ResponseEntity.badRequest().body(Map.of("error", "Tên danh mục đã tồn tại"));
         }
+
+        Category parent = null;
+        if (parentId != null) {
+            parent = categoryRepository.findById(parentId).orElse(null);
+            if (parent == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Danh mục chính không tồn tại"));
+            }
+            if (parent.getParent() != null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Chỉ hỗ trợ 2 cấp danh mục"));
+            }
+        }
+
         Category category = new Category();
         category.setName(name.trim());
         category.setDescription((String) body.getOrDefault("description", ""));
         category.setActive(true);
+        category.setParent(parent);
         categoryRepository.save(category);
         return ResponseEntity.ok(Map.of("message", "Thêm danh mục thành công", "id", category.getId()));
     }
@@ -299,10 +316,45 @@ public class ApiAdminController {
     public ResponseEntity<?> updateCategory(@PathVariable Long id, @RequestBody Map<String, Object> body) {
         Category category = categoryRepository.findById(id).orElse(null);
         if (category == null) return ResponseEntity.notFound().build();
+
         String name = (String) body.get("name");
-        if (name != null) category.setName(name.trim());
+        if (name != null) {
+            String normalizedName = name.trim();
+            if (normalizedName.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Tên danh mục không được để trống"));
+            }
+            if (categoryRepository.existsByNameAndIdNot(normalizedName, category.getId())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Tên danh mục đã tồn tại"));
+            }
+            category.setName(normalizedName);
+        }
+
         if (body.containsKey("description")) category.setDescription((String) body.get("description"));
         if (body.containsKey("active")) category.setActive((Boolean) body.get("active"));
+
+        if (body.containsKey("parentId")) {
+            Object parentRaw = body.get("parentId");
+            Category parent = null;
+            if (parentRaw != null) {
+                Long parentId = Long.valueOf(parentRaw.toString());
+                if (parentId.equals(category.getId())) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Danh mục không thể là cha của chính nó"));
+                }
+                parent = categoryRepository.findById(parentId).orElse(null);
+                if (parent == null) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Danh mục chính không tồn tại"));
+                }
+                if (parent.getParent() != null) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Chỉ hỗ trợ 2 cấp danh mục"));
+                }
+            }
+
+            if (parent == null && !category.getChildren().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Không thể chuyển thành danh mục chính khi đang có danh mục phụ"));
+            }
+            category.setParent(parent);
+        }
+
         categoryRepository.save(category);
         return ResponseEntity.ok(Map.of("message", "Cập nhật danh mục thành công"));
     }
@@ -312,8 +364,90 @@ public class ApiAdminController {
         Category category = categoryRepository.findById(id).orElse(null);
         if (category == null) return ResponseEntity.notFound().build();
         category.setActive(false);
+
+        // Deactivate subcategories when deleting a main category.
+        if (category.getParent() == null) {
+            List<Category> subCategories = categoryRepository.findByParentId(category.getId());
+            subCategories.forEach(sub -> sub.setActive(false));
+            categoryRepository.saveAll(subCategories);
+        }
+
         categoryRepository.save(category);
         return ResponseEntity.ok(Map.of("message", "Xóa danh mục thành công"));
+    }
+
+    private void appendProductCategoryInfo(Map<String, Object> map, Product product) {
+        if (product.getCategory() == null) {
+            map.put("categoryId", null);
+            map.put("categoryName", null);
+            map.put("mainCategoryId", null);
+            map.put("mainCategoryName", null);
+            map.put("subCategoryId", null);
+            map.put("subCategoryName", null);
+            return;
+        }
+
+        Category category = product.getCategory();
+        Category mainCategory = category.getParent() != null ? category.getParent() : category;
+        Category subCategory = category.getParent() != null ? category : null;
+
+        map.put("categoryId", category.getId());
+        map.put("categoryName", category.getName());
+        map.put("mainCategoryId", mainCategory.getId());
+        map.put("mainCategoryName", mainCategory.getName());
+        map.put("subCategoryId", subCategory != null ? subCategory.getId() : null);
+        map.put("subCategoryName", subCategory != null ? subCategory.getName() : null);
+    }
+
+    private Map<String, Object> toCategoryAdminSummary(Category category, boolean includeChildren) {
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("id", category.getId());
+        result.put("name", category.getName());
+        result.put("description", category.getDescription());
+        result.put("active", category.isActive());
+        result.put("displayOrder", category.getDisplayOrder());
+        result.put("productCount", category.getProducts() != null ? category.getProducts().size() : 0);
+        result.put("parentId", category.getParent() != null ? category.getParent().getId() : null);
+        result.put("isMainCategory", category.getParent() == null);
+
+        if (includeChildren) {
+            List<Category> subCategories = category.getChildren().stream()
+                    .sorted(Comparator.comparing((Category c) -> c.getDisplayOrder() != null ? c.getDisplayOrder() : 0)
+                            .thenComparing(Category::getName))
+                    .collect(Collectors.toList());
+            result.put("subCategories", subCategories.stream().map(sub -> toCategoryAdminSummary(sub, false)).collect(Collectors.toList()));
+        }
+        return result;
+    }
+
+    private Category resolveProductCategory(Long categoryId, Long mainCategoryId, Long subCategoryId) {
+        if (subCategoryId != null) {
+            Category subCategory = categoryRepository.findById(subCategoryId)
+                    .orElseThrow(() -> new IllegalArgumentException("Danh mục phụ không tồn tại"));
+            if (subCategory.getParent() == null) {
+                throw new IllegalArgumentException("Danh mục phụ không hợp lệ");
+            }
+            if (mainCategoryId != null && !subCategory.getParent().getId().equals(mainCategoryId)) {
+                throw new IllegalArgumentException("Danh mục phụ không thuộc danh mục chính đã chọn");
+            }
+            return subCategory;
+        }
+
+        if (categoryId != null) {
+            return categoryRepository.findById(categoryId)
+                    .orElseThrow(() -> new IllegalArgumentException("Danh mục không tồn tại"));
+        }
+
+        if (mainCategoryId != null) {
+            Category mainCategory = categoryRepository.findById(mainCategoryId)
+                    .orElseThrow(() -> new IllegalArgumentException("Danh mục chính không tồn tại"));
+            if (mainCategory.getParent() != null) {
+                throw new IllegalArgumentException("Danh mục chính không hợp lệ");
+            }
+            return mainCategory;
+        }
+
+        return null;
     }
 
     // ===== ORDER MANAGEMENT =====

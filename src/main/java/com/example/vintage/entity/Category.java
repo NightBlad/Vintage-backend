@@ -31,6 +31,13 @@ public class Category {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    private Category parent;
+
+    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL)
+    private Set<Category> children = new HashSet<>();
+
     @OneToMany(mappedBy = "category", cascade = CascadeType.ALL)
     private Set<Product> products = new HashSet<>();
 
@@ -77,6 +84,14 @@ public class Category {
 
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    public Category getParent() { return parent; }
+    public void setParent(Category parent) { this.parent = parent; }
+
+    public Set<Category> getChildren() { return children; }
+    public void setChildren(Set<Category> children) { this.children = children; }
+
+    public boolean isMainCategory() { return parent == null; }
 
     public Set<Product> getProducts() { return products; }
     public void setProducts(Set<Product> products) { this.products = products; }

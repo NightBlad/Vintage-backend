@@ -32,11 +32,17 @@ public class ApiProductController {
     public ResponseEntity<?> getProducts(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "12") int size,
-            @RequestParam(required = false) Long categoryId) {
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Long mainCategoryId,
+            @RequestParam(required = false) Long subCategoryId) {
         try {
             Pageable pageable = PageRequest.of(page, size);
             Page<Product> products;
-            if (categoryId != null) {
+            if (subCategoryId != null) {
+                products = productRepository.findByActiveTrueAndCategoryId(subCategoryId, pageable);
+            } else if (mainCategoryId != null) {
+                products = productRepository.findByActiveTrueAndMainCategoryId(mainCategoryId, pageable);
+            } else if (categoryId != null) {
                 products = productRepository.findByActiveTrueAndCategoryId(categoryId, pageable);
             } else {
                 products = productRepository.findByActiveTrue(pageable);
@@ -66,8 +72,11 @@ public class ApiProductController {
                 .map(product -> {
                     List<Product> related = List.of();
                     if (product.getCategory() != null) {
-                        Page<Product> relatedPage = productRepository.findByActiveTrueAndCategoryIdAndIdNot(
-                                product.getCategory().getId(), id, PageRequest.of(0, 4));
+                        Long categoryTreeId = product.getCategory().getParent() != null
+                                ? product.getCategory().getParent().getId()
+                                : product.getCategory().getId();
+                        Page<Product> relatedPage = productRepository.findRelatedProductsByCategoryTree(
+                                categoryTreeId, id, PageRequest.of(0, 4));
                         related = relatedPage.getContent();
                     }
                     Map<String, Object> response = new java.util.HashMap<>(toProductDetail(product));
@@ -82,8 +91,8 @@ public class ApiProductController {
      */
     @GetMapping("/categories")
     public ResponseEntity<?> getCategories() {
-        List<Category> categories = categoryRepository.findByActiveTrueOrderByName();
-        return ResponseEntity.ok(categories.stream().map(this::toCategorySummary).toList());
+        List<Category> mainCategories = categoryRepository.findByActiveTrueAndParentIsNullOrderByDisplayOrderAscNameAsc();
+        return ResponseEntity.ok(mainCategories.stream().map(c -> toCategorySummary(c, true)).toList());
     }
 
     /**
@@ -92,7 +101,7 @@ public class ApiProductController {
     @GetMapping("/categories/{id}")
     public ResponseEntity<?> getCategoryById(@PathVariable Long id) {
         return categoryRepository.findById(id)
-                .map(c -> ResponseEntity.ok((Object) toCategorySummary(c)))
+                .map(c -> ResponseEntity.ok((Object) toCategorySummary(c, true)))
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -143,6 +152,14 @@ public class ApiProductController {
         if (p.getCategory() != null) {
             map.put("categoryId", p.getCategory().getId());
             map.put("categoryName", p.getCategory().getName());
+
+            Category mainCategory = p.getCategory().getParent() != null ? p.getCategory().getParent() : p.getCategory();
+            Category subCategory = p.getCategory().getParent() != null ? p.getCategory() : null;
+
+            map.put("mainCategoryId", mainCategory.getId());
+            map.put("mainCategoryName", mainCategory.getName());
+            map.put("subCategoryId", subCategory != null ? subCategory.getId() : null);
+            map.put("subCategoryName", subCategory != null ? subCategory.getName() : null);
         }
         return map;
     }
@@ -163,14 +180,21 @@ public class ApiProductController {
         return map;
     }
 
-    private Map<String, Object> toCategorySummary(Category c) {
-        return Map.of(
-                "id", c.getId(),
-                "name", c.getName(),
-                "description", c.getDescription() != null ? c.getDescription() : "",
-                "imageUrl", c.getImageUrl() != null ? c.getImageUrl() : "",
-                "displayOrder", c.getDisplayOrder() != null ? c.getDisplayOrder() : 0
-        );
+    private Map<String, Object> toCategorySummary(Category c, boolean includeChildren) {
+        Map<String, Object> map = new java.util.HashMap<>();
+        map.put("id", c.getId());
+        map.put("name", c.getName());
+        map.put("description", c.getDescription() != null ? c.getDescription() : "");
+        map.put("imageUrl", c.getImageUrl() != null ? c.getImageUrl() : "");
+        map.put("displayOrder", c.getDisplayOrder() != null ? c.getDisplayOrder() : 0);
+        map.put("parentId", c.getParent() != null ? c.getParent().getId() : null);
+        map.put("isMainCategory", c.getParent() == null);
+
+        if (includeChildren) {
+            List<Category> children = categoryRepository.findByActiveTrueAndParentIdOrderByDisplayOrderAscNameAsc(c.getId());
+            map.put("subCategories", children.stream().map(child -> toCategorySummary(child, false)).toList());
+        }
+        return map;
     }
 }
 

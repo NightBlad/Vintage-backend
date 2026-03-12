@@ -17,6 +17,9 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     Page<Product> findByActiveTrueAndCategoryId(Long categoryId, Pageable pageable);
 
+    @Query("SELECT p FROM Product p WHERE p.active = true AND (p.category.id = :mainCategoryId OR p.category.parent.id = :mainCategoryId)")
+    Page<Product> findByActiveTrueAndMainCategoryId(@Param("mainCategoryId") Long mainCategoryId, Pageable pageable);
+
     List<Product> findByActiveTrueAndFeaturedTrue();
 
     @Query("SELECT p FROM Product p WHERE p.active = true AND " +
@@ -31,4 +34,9 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     // Tìm sản phẩm liên quan cùng danh mục (loại trừ sản phẩm hiện tại)
     Page<Product> findByActiveTrueAndCategoryIdAndIdNot(Long categoryId, Long excludeId, Pageable pageable);
+
+    @Query("SELECT p FROM Product p WHERE p.active = true AND (p.category.id = :categoryId OR p.category.parent.id = :categoryId) AND p.id <> :excludeId")
+    Page<Product> findRelatedProductsByCategoryTree(@Param("categoryId") Long categoryId,
+                                                    @Param("excludeId") Long excludeId,
+                                                    Pageable pageable);
 }

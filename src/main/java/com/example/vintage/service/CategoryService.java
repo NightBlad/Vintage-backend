@@ -24,7 +24,7 @@ public class CategoryService {
     }
 
     public List<Category> getAllActiveCategories() {
-        return categoryRepository.findByActiveTrueOrderByName();
+        return categoryRepository.findByActiveTrueOrderByDisplayOrderAscNameAsc();
     }
 
     public List<Category> getAllCategories() {
