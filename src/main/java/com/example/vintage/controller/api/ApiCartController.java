@@ -68,14 +68,30 @@ public class ApiCartController {
      */
     @PostMapping("/add")
     public ResponseEntity<?> addToCart(@RequestBody Map<String, Object> body) {
-        Long productId = Long.valueOf(body.get("productId").toString());
-        int quantity = body.containsKey("quantity") ? Integer.parseInt(body.get("quantity").toString()) : 1;
+        if (body == null || !body.containsKey("productId")) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Thiếu productId"));
+        }
+
+        Long productId;
+        int quantity;
+        try {
+            productId = Long.valueOf(body.get("productId").toString().trim());
+            quantity = body.containsKey("quantity") ? Integer.parseInt(body.get("quantity").toString().trim()) : 1;
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Dữ liệu productId/quantity không hợp lệ"));
+        }
+
+        if (quantity <= 0) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Số lượng phải lớn hơn 0"));
+        }
 
         Product product = productRepository.findById(productId).orElse(null);
         if (product == null || !product.isActive()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Sản phẩm không tồn tại hoặc không khả dụng"));
         }
-        if (product.getStockQuantity() < quantity) {
+        int currentInCart = cartService.getItemCount(productId);
+        int requestedTotal = currentInCart + quantity;
+        if (product.getStockQuantity() < requestedTotal) {
             return ResponseEntity.badRequest().body(Map.of("error", "Số lượng sản phẩm không đủ"));
         }
 

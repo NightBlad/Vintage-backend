@@ -90,21 +90,28 @@ public class OrderService {
             Product product = entry.getKey();
             Integer quantity = entry.getValue();
 
+            Product managedProduct = productRepository.findById(product.getId())
+                    .orElseThrow(() -> new RuntimeException("Sản phẩm không tồn tại: " + product.getId()));
+
+            if (!managedProduct.isActive()) {
+                throw new RuntimeException("Sản phẩm " + managedProduct.getName() + " hiện không khả dụng");
+            }
+
             // Kiểm tra số lượng trong kho
-            if (product.getStockQuantity() < quantity) {
-                throw new RuntimeException("Sản phẩm " + product.getName() + " không đủ số lượng trong kho");
+            if (managedProduct.getStockQuantity() < quantity) {
+                throw new RuntimeException("Sản phẩm " + managedProduct.getName() + " không đủ số lượng trong kho");
             }
 
             // Tạo order item
             OrderItem orderItem = new OrderItem();
             orderItem.setOrder(order);
-            orderItem.setProduct(product);
+            orderItem.setProduct(managedProduct);
             orderItem.setQuantity(quantity);
 
             // Sử dụng giá sale nếu có, không thì dùng giá gốc
-            BigDecimal unitPrice = (product.getSalePrice() != null && product.getSalePrice().compareTo(BigDecimal.ZERO) > 0)
-                                 ? product.getSalePrice()
-                                 : product.getPrice();
+            BigDecimal unitPrice = (managedProduct.getSalePrice() != null && managedProduct.getSalePrice().compareTo(BigDecimal.ZERO) > 0)
+                                 ? managedProduct.getSalePrice()
+                                 : managedProduct.getPrice();
             orderItem.setPrice(unitPrice);  // Sử dụng setPrice thay vì setUnitPrice
 
             BigDecimal itemTotal = unitPrice.multiply(BigDecimal.valueOf(quantity));
@@ -114,8 +121,8 @@ public class OrderService {
             totalAmount = totalAmount.add(itemTotal);
 
             // Cập nhật số lượng trong kho
-            product.setStockQuantity(product.getStockQuantity() - quantity);
-            productRepository.save(product);
+            managedProduct.setStockQuantity(managedProduct.getStockQuantity() - quantity);
+            productRepository.save(managedProduct);
         }
 
         // Tính phí vận chuyển

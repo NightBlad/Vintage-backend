@@ -70,3 +70,6 @@ logs/
 .DS_Store
 Thumbs.db
 
+
+### perfomance testing ###
+performance/
