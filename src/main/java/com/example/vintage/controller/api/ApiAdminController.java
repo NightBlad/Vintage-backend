@@ -3,12 +3,14 @@ package com.example.vintage.controller.api;
 import com.example.vintage.entity.*;
 import com.example.vintage.repository.*;
 import com.example.vintage.service.FileUploadService;
+import com.example.vintage.entity.RoleName;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -18,6 +20,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.security.Principal;
 
 @RestController
 @RequestMapping({"/api/admin", "/api/v1/admin"})
@@ -561,7 +564,13 @@ public class ApiAdminController {
                     m.put("fullName", u.getFullName());
                     m.put("phone", u.getPhone());
                     m.put("enabled", u.isEnabled());
-                    m.put("roles", u.getRoles().stream().map(r -> r.getName().name()).collect(Collectors.toList()));
+
+                    // THÊM DÒNG NÀY ĐỂ GIỮ TRẠNG THÁI KHÓA KHI LOAD LẠI TRANG
+                    m.put("accountLocked", u.isAccountLocked());
+
+                    m.put("roles", u.getRoles().stream()
+                            .map(r -> r.getName().name())
+                            .collect(Collectors.toList()));
                     m.put("createdAt", u.getCreatedAt());
                     return m;
                 }).collect(Collectors.toList()),
@@ -595,6 +604,100 @@ public class ApiAdminController {
         user.setEnabled(false);
         userRepository.save(user);
         return ResponseEntity.ok(Map.of("message", "Xóa người dùng thành công"));
+    }
+
+    @PostMapping("/users/{id}/toggle-lock")
+    @Transactional
+    public ResponseEntity<?> toggleUserLock(@PathVariable Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+
+        // Thực hiện đảo ngược trạng thái khóa
+        user.setAccountLocked(!user.isAccountLocked());
+        if (!user.isAccountLocked()) {
+            user.setFailedAttempts(0); // Reset số lần thử nếu mở khóa
+        }
+
+        User updatedUser = userRepository.save(user);
+
+        // Trả về Object đầy đủ để Frontend update lại mảng users mà không bị lỗi
+        Map<String, Object> response = new java.util.HashMap<>();
+        response.put("id", updatedUser.getId());
+        response.put("username", updatedUser.getUsername());
+        response.put("email", updatedUser.getEmail());
+        response.put("fullName", updatedUser.getFullName());
+        response.put("accountLocked", updatedUser.isAccountLocked());
+        response.put("enabled", updatedUser.isEnabled());
+        response.put("roles", updatedUser.getRoles().stream()
+                .map(r -> r.getName().name())
+                .collect(Collectors.toList()));
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/users/{id}/toggle-role")
+    @Transactional
+    public ResponseEntity<?> toggleUserRole(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body,
+            Principal principal) { // Thêm tham số Principal để lấy user đang đăng nhập
+
+        User userToUpdate = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+
+        // Lấy tên đăng nhập của Admin đang thao tác
+        String currentAdminUsername = principal.getName();
+
+        // 1. NGĂN CHẶN TỰ SỬA QUYỀN CỦA CHÍNH MÌNH
+        if (userToUpdate.getUsername().equals(currentAdminUsername)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Bạn không thể tự thay đổi quyền hạn của chính mình để tránh mất quyền truy cập!"
+            ));
+        }
+
+        String roleNameStr = body.get("role");
+
+        try {
+            RoleName targetRoleName = RoleName.valueOf(roleNameStr);
+            Role role = roleRepository.findByName(targetRoleName)
+                    .orElseThrow(() -> new RuntimeException("Lỗi: Không tìm thấy quyền " + roleNameStr));
+
+            // 2. NGĂN CHẶN XÓA QUYỀN ADMIN NẾU LÀ ADMIN CUỐI CÙNG (Tùy chọn thêm)
+            if (targetRoleName == RoleName.ROLE_ADMIN && userToUpdate.getRoles().contains(role)) {
+                long adminCount = userRepository.countByRolesName(RoleName.ROLE_ADMIN);
+                if (adminCount <= 1) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                            "error", "Hệ thống phải có ít nhất một Quản trị viên!"
+                    ));
+                }
+            }
+
+            if (userToUpdate.getRoles().contains(role)) {
+                userToUpdate.getRoles().remove(role);
+            } else {
+                userToUpdate.getRoles().add(role);
+            }
+
+            userRepository.save(userToUpdate);
+
+            // Trả về dữ liệu đầy đủ để Frontend cập nhật giao diện
+            Map<String, Object> response = new java.util.HashMap<>();
+            response.put("id", userToUpdate.getId());
+            response.put("username", userToUpdate.getUsername());
+            response.put("email", userToUpdate.getEmail());
+            response.put("fullName", userToUpdate.getFullName());
+            response.put("accountLocked", userToUpdate.isAccountLocked());
+            response.put("enabled", userToUpdate.isEnabled());
+            response.put("roles", userToUpdate.getRoles().stream()
+                    .map(r -> r.getName().name())
+                    .collect(Collectors.toList()));
+            response.put("message", "Cập nhật quyền thành công");
+
+            return ResponseEntity.ok(response);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Tên quyền không hợp lệ: " + roleNameStr));
+        }
     }
 }
 
