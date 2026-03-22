@@ -4,6 +4,8 @@ import com.example.vintage.entity.*;
 import com.example.vintage.repository.OrderRepository;
 import com.example.vintage.repository.UserRepository;
 import com.example.vintage.repository.ProductRepository;
+import com.example.vintage.service.InventoryService;
+import com.example.vintage.repository.WarehouseRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,13 +23,19 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
+    private final InventoryService inventoryService;
+    private final WarehouseRepository warehouseRepository;
 
     public OrderService(OrderRepository orderRepository,
                        UserRepository userRepository,
-                       ProductRepository productRepository) {
+                       ProductRepository productRepository,
+                       InventoryService inventoryService,
+                       WarehouseRepository warehouseRepository) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.productRepository = productRepository;
+        this.inventoryService = inventoryService;
+        this.warehouseRepository = warehouseRepository;
     }
 
     public List<Order> findOrdersByUser(User user) {
@@ -86,32 +94,34 @@ public class OrderService {
         BigDecimal totalAmount = BigDecimal.ZERO;
         Set<OrderItem> orderItems = new HashSet<>();
 
+        // Check stock in inventory module BEFORE creating items
+        for (Map.Entry<Product, Integer> entry : cartItems.entrySet()) {
+            Product product = productRepository.findById(entry.getKey().getId())
+                    .orElseThrow(() -> new RuntimeException("Sản phẩm không tồn tại: " + entry.getKey().getId()));
+            if (!product.isActive()) {
+                throw new RuntimeException("Sản phẩm " + product.getName() + " hiện không khả dụng");
+            }
+            int available = inventoryService.getAvailableQuantity(product);
+            if (available < entry.getValue()) {
+                throw new RuntimeException("Sản phẩm " + product.getName() + " đã hết hàng");
+            }
+        }
+
+        // Sau khi pass check stock, mới build Order & OrderItems như cũ
         for (Map.Entry<Product, Integer> entry : cartItems.entrySet()) {
             Product product = entry.getKey();
             Integer quantity = entry.getValue();
 
-            Product managedProduct = productRepository.findById(product.getId())
-                    .orElseThrow(() -> new RuntimeException("Sản phẩm không tồn tại: " + product.getId()));
-
-            if (!managedProduct.isActive()) {
-                throw new RuntimeException("Sản phẩm " + managedProduct.getName() + " hiện không khả dụng");
-            }
-
-            // Kiểm tra số lượng trong kho
-            if (managedProduct.getStockQuantity() < quantity) {
-                throw new RuntimeException("Sản phẩm " + managedProduct.getName() + " không đủ số lượng trong kho");
-            }
-
             // Tạo order item
             OrderItem orderItem = new OrderItem();
             orderItem.setOrder(order);
-            orderItem.setProduct(managedProduct);
+            orderItem.setProduct(product);
             orderItem.setQuantity(quantity);
 
             // Sử dụng giá sale nếu có, không thì dùng giá gốc
-            BigDecimal unitPrice = (managedProduct.getSalePrice() != null && managedProduct.getSalePrice().compareTo(BigDecimal.ZERO) > 0)
-                                 ? managedProduct.getSalePrice()
-                                 : managedProduct.getPrice();
+            BigDecimal unitPrice = (product.getSalePrice() != null && product.getSalePrice().compareTo(BigDecimal.ZERO) > 0)
+                                 ? product.getSalePrice()
+                                 : product.getPrice();
             orderItem.setPrice(unitPrice);  // Sử dụng setPrice thay vì setUnitPrice
 
             BigDecimal itemTotal = unitPrice.multiply(BigDecimal.valueOf(quantity));
@@ -119,10 +129,6 @@ public class OrderService {
 
             orderItems.add(orderItem);
             totalAmount = totalAmount.add(itemTotal);
-
-            // Cập nhật số lượng trong kho
-            managedProduct.setStockQuantity(managedProduct.getStockQuantity() - quantity);
-            productRepository.save(managedProduct);
         }
 
         // Tính phí vận chuyển
@@ -151,9 +157,39 @@ public class OrderService {
 
     public void updateOrderStatus(Long orderId, OrderStatus status) {
         Order order = findById(orderId);
+        OrderStatus oldStatus = order.getStatus();
         order.setStatus(status);
         order.setUpdatedAt(LocalDateTime.now());
         orderRepository.save(order);
+
+        // Kho chỉ có 1, dùng kho mặc định
+        Warehouse warehouse = inventoryService.getDefaultWarehouse();
+
+        // Khi chuyển sang CONFIRMED: trừ kho
+        if (oldStatus == OrderStatus.PENDING && status == OrderStatus.CONFIRMED) {
+            order.getOrderItems().forEach(item ->
+                    inventoryService.exportStock(
+                            item.getProduct(),
+                            warehouse,
+                            item.getQuantity(),
+                            order.getOrderNumber(),
+                            "Xuất kho cho đơn hàng " + order.getOrderNumber()
+                    )
+            );
+        }
+
+        // Khi chuyển sang CANCELED: hoàn kho nếu trước đó đã CONFIRMED
+        if (oldStatus == OrderStatus.CONFIRMED && status == OrderStatus.CANCELLED) {
+            order.getOrderItems().forEach(item ->
+                    inventoryService.importStock(
+                            item.getProduct(),
+                            warehouse,
+                            item.getQuantity(),
+                            order.getOrderNumber(),
+                            "Hoàn kho do hủy đơn " + order.getOrderNumber()
+                    )
+            );
+        }
     }
 
     public List<Order> findAllOrders() {

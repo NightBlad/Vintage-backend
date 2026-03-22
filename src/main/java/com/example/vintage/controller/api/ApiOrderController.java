@@ -132,12 +132,33 @@ public class ApiOrderController {
                     if (!order.getUser().getId().equals(currentUser.getId()) && !sessionService.isAdmin()) {
                         return ResponseEntity.status(403).<Object>body(Map.of("error", "Không có quyền thực hiện"));
                     }
-                    if (order.getStatus() != OrderStatus.PENDING) {
-                        return ResponseEntity.badRequest().<Object>body(Map.of("error", "Chỉ có thể hủy đơn hàng đang chờ xác nhận"));
+                    if (order.getStatus() != OrderStatus.PENDING && order.getStatus() != OrderStatus.CONFIRMED) {
+                        return ResponseEntity.badRequest().<Object>body(Map.of("error", "Chỉ có thể hủy đơn hàng đang chờ xác nhận hoặc đã xác nhận"));
                     }
-                    order.setStatus(OrderStatus.CANCELLED);
-                    orderRepository.save(order);
+                    // dùng service để đảm bảo logic hoàn kho khi CANCELED
+                    orderService.updateOrderStatus(order.getId(), OrderStatus.CANCELLED);
                     return ResponseEntity.ok((Object) Map.of("message", "Đơn hàng đã được hủy thành công"));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * PUT /api/orders/{id}/confirm
+     * Xác nhận đơn hàng
+     */
+    @PutMapping("/{id}/confirm")
+    public ResponseEntity<?> confirmOrder(@PathVariable Long id) {
+        User currentUser = sessionService.getCurrentUser();
+        if (currentUser == null || !sessionService.isAdmin()) {
+            return ResponseEntity.status(403).body(Map.of("error", "Chỉ admin mới được xác nhận đơn hàng"));
+        }
+        return orderRepository.findById(id)
+                .map(order -> {
+                    if (order.getStatus() != OrderStatus.PENDING) {
+                        return ResponseEntity.badRequest().<Object>body(Map.of("error", "Chỉ có thể xác nhận đơn hàng đang chờ xử lý"));
+                    }
+                    orderService.updateOrderStatus(order.getId(), OrderStatus.CONFIRMED);
+                    return ResponseEntity.ok((Object) Map.of("message", "Đơn hàng đã được xác nhận"));
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -182,4 +203,3 @@ public class ApiOrderController {
         return map;
     }
 }
-

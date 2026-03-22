@@ -3,6 +3,7 @@ package com.example.vintage.controller.api;
 import com.example.vintage.entity.Product;
 import com.example.vintage.repository.ProductRepository;
 import com.example.vintage.service.CartService;
+import com.example.vintage.service.InventoryService;
 import com.example.vintage.service.SessionService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,13 +20,16 @@ public class ApiCartController {
     private final CartService cartService;
     private final ProductRepository productRepository;
     private final SessionService sessionService;
+    private final InventoryService inventoryService;
 
     public ApiCartController(CartService cartService,
                              ProductRepository productRepository,
-                             SessionService sessionService) {
+                             SessionService sessionService,
+                             InventoryService inventoryService) {
         this.cartService = cartService;
         this.productRepository = productRepository;
         this.sessionService = sessionService;
+        this.inventoryService = inventoryService;
     }
 
     /**
@@ -89,10 +93,13 @@ public class ApiCartController {
         if (product == null || !product.isActive()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Sản phẩm không tồn tại hoặc không khả dụng"));
         }
+
         int currentInCart = cartService.getItemCount(productId);
         int requestedTotal = currentInCart + quantity;
-        if (product.getStockQuantity() < requestedTotal) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Số lượng sản phẩm không đủ"));
+
+        int availableStock = inventoryService.getAvailableQuantity(product);
+        if (availableStock < requestedTotal) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Số lượng sản phẩm trong kho không đủ"));
         }
 
         cartService.addToCart(product, quantity);
@@ -115,8 +122,10 @@ public class ApiCartController {
         if (product == null) {
             return ResponseEntity.badRequest().body(Map.of("error", "Sản phẩm không tồn tại"));
         }
-        if (quantity > product.getStockQuantity()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Số lượng sản phẩm không đủ"));
+
+        int availableStock = inventoryService.getAvailableQuantity(product);
+        if (quantity > availableStock) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Số lượng sản phẩm trong kho không đủ"));
         }
 
         if (quantity <= 0) {
@@ -165,4 +174,3 @@ public class ApiCartController {
         return ResponseEntity.ok(Map.of("totalItems", cartService.getTotalItems()));
     }
 }
-
