@@ -26,7 +26,7 @@ public class ApiProductController {
     }
 
     /**
-     * GET /api/products?page=0&size=12&categoryId=1
+     * GET /api/products?page=0&size=12&mainCategoryId=1&subCategoryId=5
      */
     @GetMapping("/products")
     public ResponseEntity<?> getProducts(
@@ -38,8 +38,10 @@ public class ApiProductController {
         try {
             Pageable pageable = PageRequest.of(page, size);
             Page<Product> products;
+            
+            // Priority: subCategoryId > mainCategoryId > categoryId > all
             if (subCategoryId != null) {
-                products = productRepository.findByActiveTrueAndCategoryId(subCategoryId, pageable);
+                products = productRepository.findByActiveTrueAndSubCategoryId(subCategoryId, pageable);
             } else if (mainCategoryId != null) {
                 products = productRepository.findByActiveTrueAndMainCategoryId(mainCategoryId, pageable);
             } else if (categoryId != null) {
@@ -49,7 +51,7 @@ public class ApiProductController {
             }
             return ResponseEntity.ok(buildPageResponse(products));
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+            throw new RuntimeException(e.getMessage());
         }
     }
 
@@ -71,13 +73,19 @@ public class ApiProductController {
                 .filter(Product::isActive)
                 .map(product -> {
                     List<Product> related = List.of();
-                    if (product.getCategory() != null) {
+                    if (product.getSubCategory() != null) {
+                        related = productRepository
+                                .findByActiveTrueAndSubCategoryId(product.getSubCategory().getId(), PageRequest.of(0, 8))
+                                .getContent().stream().filter(p -> !p.getId().equals(id)).limit(4).toList();
+                    } else if (product.getMainCategory() != null) {
+                        related = productRepository
+                                .findByActiveTrueAndMainCategoryId(product.getMainCategory().getId(), PageRequest.of(0, 8))
+                                .getContent().stream().filter(p -> !p.getId().equals(id)).limit(4).toList();
+                    } else if (product.getCategory() != null) {
                         Long categoryTreeId = product.getCategory().getParent() != null
                                 ? product.getCategory().getParent().getId()
                                 : product.getCategory().getId();
-                        Page<Product> relatedPage = productRepository.findRelatedProductsByCategoryTree(
-                                categoryTreeId, id, PageRequest.of(0, 4));
-                        related = relatedPage.getContent();
+                        related = productRepository.findRelatedProductsByCategoryTree(categoryTreeId, id, PageRequest.of(0, 4)).getContent();
                     }
                     Map<String, Object> response = new java.util.HashMap<>(toProductDetail(product));
                     response.put("relatedProducts", related.stream().map(this::toProductSummary).toList());
@@ -120,7 +128,7 @@ public class ApiProductController {
             result.put("keyword", keyword);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+            throw new RuntimeException(e.getMessage());
         }
     }
 
@@ -146,21 +154,26 @@ public class ApiProductController {
         map.put("price", p.getPrice());
         map.put("salePrice", p.getSalePrice());
         map.put("stockQuantity", p.getStockQuantity());
-        map.put("imageUrl", p.getImageUrl() != null ? "/uploads/" + p.getImageUrl() : null);
+        map.put("imageUrl", p.getImageUrl());
         map.put("featured", p.isFeatured());
         map.put("prescriptionRequired", p.isPrescriptionRequired());
-        if (p.getCategory() != null) {
-            map.put("categoryId", p.getCategory().getId());
-            map.put("categoryName", p.getCategory().getName());
 
-            Category mainCategory = p.getCategory().getParent() != null ? p.getCategory().getParent() : p.getCategory();
-            Category subCategory = p.getCategory().getParent() != null ? p.getCategory() : null;
+        Category mainCategory = p.getMainCategory();
+        Category subCategory = p.getSubCategory();
+        Category legacyCategory = p.getCategory();
 
-            map.put("mainCategoryId", mainCategory.getId());
-            map.put("mainCategoryName", mainCategory.getName());
-            map.put("subCategoryId", subCategory != null ? subCategory.getId() : null);
-            map.put("subCategoryName", subCategory != null ? subCategory.getName() : null);
+        if (mainCategory == null && subCategory == null && legacyCategory != null) {
+            mainCategory = legacyCategory.getParent() != null ? legacyCategory.getParent() : legacyCategory;
+            subCategory = legacyCategory.getParent() != null ? legacyCategory : null;
         }
+
+        Category displayCategory = subCategory != null ? subCategory : mainCategory;
+        map.put("categoryId", displayCategory != null ? displayCategory.getId() : null);
+        map.put("categoryName", displayCategory != null ? displayCategory.getName() : null);
+        map.put("mainCategoryId", mainCategory != null ? mainCategory.getId() : null);
+        map.put("mainCategoryName", mainCategory != null ? mainCategory.getName() : null);
+        map.put("subCategoryId", subCategory != null ? subCategory.getId() : null);
+        map.put("subCategoryName", subCategory != null ? subCategory.getName() : null);
         return map;
     }
 

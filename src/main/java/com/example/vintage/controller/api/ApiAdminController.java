@@ -1,12 +1,15 @@
 package com.example.vintage.controller.api;
 
+import com.example.vintage.dto.ProductDTO;
 import com.example.vintage.entity.*;
 import com.example.vintage.repository.*;
 import com.example.vintage.service.FileUploadService;
+import com.example.vintage.service.ProductService;
 import com.example.vintage.entity.RoleName;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -32,19 +35,22 @@ public class ApiAdminController {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final FileUploadService fileUploadService;
+    private final ProductService productService;
 
     public ApiAdminController(ProductRepository productRepository,
                                CategoryRepository categoryRepository,
                                OrderRepository orderRepository,
                                UserRepository userRepository,
                                RoleRepository roleRepository,
-                               FileUploadService fileUploadService) {
+                               FileUploadService fileUploadService,
+                               ProductService productService) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.fileUploadService = fileUploadService;
+        this.productService = productService;
     }
 
     // ===== DASHBOARD =====
@@ -81,7 +87,7 @@ public class ApiAdminController {
                     m.put("stockQuantity", p.getStockQuantity());
                     m.put("active", p.isActive());
                     m.put("featured", p.isFeatured());
-                    m.put("imageUrl", p.getImageUrl() != null ? "/uploads/" + p.getImageUrl() : null);
+                    m.put("imageUrl", p.getImageUrl());
                     appendProductCategoryInfo(m, p);
                     return m;
                 }).collect(Collectors.toList()),
@@ -112,7 +118,7 @@ public class ApiAdminController {
                     m.put("packaging", p.getPackaging());
                     m.put("manufacturingDate", p.getManufacturingDate());
                     m.put("expiryDate", p.getExpiryDate());
-                    m.put("imageUrl", p.getImageUrl() != null ? "/uploads/" + p.getImageUrl() : null);
+                    m.put("imageUrl", p.getImageUrl());
                     m.put("prescriptionRequired", p.isPrescriptionRequired());
                     m.put("active", p.isActive());
                     m.put("featured", p.isFeatured());
@@ -145,64 +151,81 @@ public class ApiAdminController {
             @RequestParam(defaultValue = "false") boolean featured,
             @RequestParam(required = false) MultipartFile imageFile) {
 
-        if (productRepository.existsByProductCode(productCode)) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Mã sản phẩm đã tồn tại"));
-        }
-
-        Product product = new Product();
-        product.setName(name);
-        product.setProductCode(productCode);
-        product.setDescription(description);
-        product.setIngredients(ingredients);
-        product.setUsage(usage);
-        product.setContraindications(contraindications);
-        product.setPrice(price);
-        product.setSalePrice(salePrice);
-        product.setStockQuantity(stockQuantity);
-        product.setManufacturer(manufacturer);
-        product.setCountry(country);
-        product.setDosageForm(dosageForm);
-        product.setPackaging(packaging);
-        product.setPrescriptionRequired(prescriptionRequired);
-        product.setActive(active);
-        product.setFeatured(featured);
-
         try {
-            product.setCategory(resolveProductCategory(categoryId, mainCategoryId, subCategoryId));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-        if (product.getCategory() == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Vui lòng chọn danh mục chính hoặc danh mục phụ cho sản phẩm"));
-        }
-
-        if (imageFile != null && !imageFile.isEmpty()) {
-            if (!fileUploadService.isValidImageFile(imageFile)) {
-                return ResponseEntity.badRequest().body(Map.of("error", "File ảnh không hợp lệ (JPG, PNG, GIF, WEBP)"));
+            // Validate required fields
+            if (name == null || name.isBlank()) {
+                throw new IllegalArgumentException("Tên sản phẩm bắt buộc");
             }
-            try {
+            if (productCode == null || productCode.isBlank()) {
+                throw new IllegalArgumentException("Mã sản phẩm bắt buộc");
+            }
+            if (price == null || price.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Giá phải lớn hơn 0");
+            }
+            if (stockQuantity == null || stockQuantity < 0) {
+                throw new IllegalArgumentException("Số lượng không được âm");
+            }
+            if (mainCategoryId == null && categoryId == null) {
+                throw new IllegalArgumentException("mainCategoryId bắt buộc");
+            }
+
+            // Create product
+            Product product = new Product();
+            product.setName(name);
+            product.setProductCode(productCode);
+            product.setDescription(description);
+            product.setIngredients(ingredients);
+            product.setUsage(usage);
+            product.setContraindications(contraindications);
+            product.setPrice(price);
+            product.setSalePrice(salePrice);
+            product.setStockQuantity(stockQuantity);
+            product.setManufacturer(manufacturer);
+            product.setCountry(country);
+            product.setDosageForm(dosageForm);
+            product.setPackaging(packaging);
+            product.setPrescriptionRequired(prescriptionRequired);
+            product.setActive(active);
+            product.setFeatured(featured);
+
+            // Resolve and set categories
+            resolveAndSetCategories(product, categoryId, mainCategoryId, subCategoryId);
+
+            // Handle image upload
+            if (imageFile != null && !imageFile.isEmpty()) {
+                if (!fileUploadService.isValidImageFile(imageFile)) {
+                    throw new IllegalArgumentException("File phải là JPG, PNG, WEBP, max 5MB");
+                }
                 String imagePath = fileUploadService.saveFile(imageFile);
                 product.setImageUrl(imagePath);
-            } catch (IOException e) {
-                return ResponseEntity.status(500).body(Map.of("error", "Lỗi upload ảnh: " + e.getMessage()));
             }
-        }
 
-        productRepository.save(product);
-        return ResponseEntity.ok(Map.of("message", "Thêm sản phẩm thành công", "id", product.getId()));
+            // Save product using service
+            Product saved = productService.createProduct(product);
+            ProductDTO dto = productService.toDTO(saved);
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(dto);
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (IOException e) {
+            throw new RuntimeException("Lỗi upload ảnh: " + e.getMessage());
+        } catch (Exception e) {
+            throw new RuntimeException(e.getMessage() != null ? e.getMessage() : "Lỗi tạo sản phẩm");
+        }
     }
 
     @PutMapping("/products/{id}")
     public ResponseEntity<?> updateProduct(
             @PathVariable Long id,
-            @RequestParam String name,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String productCode,
             @RequestParam(required = false) String description,
             @RequestParam(required = false) String ingredients,
             @RequestParam(required = false) String usage,
             @RequestParam(required = false) String contraindications,
-            @RequestParam BigDecimal price,
+            @RequestParam(required = false) BigDecimal price,
             @RequestParam(required = false) BigDecimal salePrice,
-            @RequestParam Integer stockQuantity,
+            @RequestParam(required = false) Integer stockQuantity,
             @RequestParam(required = false) String manufacturer,
             @RequestParam(required = false) String country,
             @RequestParam(required = false) String dosageForm,
@@ -210,66 +233,72 @@ public class ApiAdminController {
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) Long mainCategoryId,
             @RequestParam(required = false) Long subCategoryId,
-            @RequestParam(defaultValue = "false") boolean prescriptionRequired,
-            @RequestParam(defaultValue = "true") boolean active,
-            @RequestParam(defaultValue = "false") boolean featured,
+            @RequestParam(required = false) Boolean prescriptionRequired,
+            @RequestParam(required = false) Boolean active,
+            @RequestParam(required = false) Boolean featured,
             @RequestParam(required = false) MultipartFile imageFile) {
 
-        Product product = productRepository.findById(id).orElse(null);
-        if (product == null) return ResponseEntity.notFound().build();
-
-        product.setName(name);
-        product.setDescription(description);
-        product.setIngredients(ingredients);
-        product.setUsage(usage);
-        product.setContraindications(contraindications);
-        product.setPrice(price);
-        product.setSalePrice(salePrice);
-        product.setStockQuantity(stockQuantity);
-        product.setManufacturer(manufacturer);
-        product.setCountry(country);
-        product.setDosageForm(dosageForm);
-        product.setPackaging(packaging);
-        product.setPrescriptionRequired(prescriptionRequired);
-        product.setActive(active);
-        product.setFeatured(featured);
-
         try {
-            product.setCategory(resolveProductCategory(categoryId, mainCategoryId, subCategoryId));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-        if (product.getCategory() == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Vui lòng chọn danh mục chính hoặc danh mục phụ cho sản phẩm"));
-        }
+            Product existing = productRepository.findById(id)
+                    .orElseThrow(() -> new IllegalArgumentException("Sản phẩm không tồn tại"));
 
-        if (imageFile != null && !imageFile.isEmpty()) {
-            if (!fileUploadService.isValidImageFile(imageFile)) {
-                return ResponseEntity.badRequest().body(Map.of("error", "File ảnh không hợp lệ"));
-            }
-            try {
-                String oldImage = product.getImageUrl();
-                String imagePath = fileUploadService.saveFile(imageFile);
-                product.setImageUrl(imagePath);
+            // Update fields if provided
+            if (name != null) existing.setName(name);
+            if (productCode != null) existing.setProductCode(productCode);
+            if (description != null) existing.setDescription(description);
+            if (ingredients != null) existing.setIngredients(ingredients);
+            if (usage != null) existing.setUsage(usage);
+            if (contraindications != null) existing.setContraindications(contraindications);
+            if (price != null) existing.setPrice(price);
+            if (salePrice != null) existing.setSalePrice(salePrice);
+            if (stockQuantity != null) existing.setStockQuantity(stockQuantity);
+            if (manufacturer != null) existing.setManufacturer(manufacturer);
+            if (country != null) existing.setCountry(country);
+            if (dosageForm != null) existing.setDosageForm(dosageForm);
+            if (packaging != null) existing.setPackaging(packaging);
+            if (prescriptionRequired != null) existing.setPrescriptionRequired(prescriptionRequired);
+            if (active != null) existing.setActive(active);
+            if (featured != null) existing.setFeatured(featured);
+
+            // Handle image upload - delete old image if new one provided
+            if (imageFile != null && !imageFile.isEmpty()) {
+                if (!fileUploadService.isValidImageFile(imageFile)) {
+                    throw new IllegalArgumentException("File phải là JPG, PNG, WEBP, max 5MB");
+                }
+                String oldImage = existing.getImageUrl();
+                String newImagePath = fileUploadService.saveFile(imageFile);
+                existing.setImageUrl(newImagePath);
+                // Delete old image after successful upload
                 if (oldImage != null && !oldImage.isEmpty()) {
                     fileUploadService.deleteFile(oldImage);
                 }
-            } catch (IOException e) {
-                return ResponseEntity.status(500).body(Map.of("error", "Lỗi upload ảnh: " + e.getMessage()));
             }
-        }
 
-        productRepository.save(product);
-        return ResponseEntity.ok(Map.of("message", "Cập nhật sản phẩm thành công"));
+            // Update categories if provided
+            resolveAndSetCategories(existing, categoryId, mainCategoryId, subCategoryId);
+
+            // Save using service
+            Product updated = productService.updateProduct(id, existing);
+            ProductDTO dto = productService.toDTO(updated);
+
+            return ResponseEntity.ok(dto);
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (IOException e) {
+            throw new RuntimeException("Lỗi upload ảnh: " + e.getMessage());
+        } catch (Exception e) {
+            throw new RuntimeException(e.getMessage() != null ? e.getMessage() : "Lỗi cập nhật sản phẩm");
+        }
     }
 
     @DeleteMapping("/products/{id}")
     public ResponseEntity<?> deleteProduct(@PathVariable Long id) {
-        Product product = productRepository.findById(id).orElse(null);
-        if (product == null) return ResponseEntity.notFound().build();
-        product.setActive(false);
-        productRepository.save(product);
-        return ResponseEntity.ok(Map.of("message", "Xóa sản phẩm thành công"));
+        try {
+            productService.hardDeleteProduct(id);
+            return ResponseEntity.noContent().build(); // 204 No Content
+        } catch (Exception e) {
+            throw new RuntimeException(e.getMessage() != null ? e.getMessage() : "Lỗi xóa sản phẩm");
+        }
     }
 
     // ===== CATEGORY MANAGEMENT =====
@@ -380,7 +409,17 @@ public class ApiAdminController {
     }
 
     private void appendProductCategoryInfo(Map<String, Object> map, Product product) {
-        if (product.getCategory() == null) {
+        Category mainCategory = product.getMainCategory();
+        Category subCategory = product.getSubCategory();
+        Category category = product.getCategory();
+
+        // Fallback to legacy mapping for old records
+        if (mainCategory == null && subCategory == null && category != null) {
+            mainCategory = category.getParent() != null ? category.getParent() : category;
+            subCategory = category.getParent() != null ? category : null;
+        }
+
+        if (mainCategory == null && subCategory == null && category == null) {
             map.put("categoryId", null);
             map.put("categoryName", null);
             map.put("mainCategoryId", null);
@@ -390,12 +429,9 @@ public class ApiAdminController {
             return;
         }
 
-        Category category = product.getCategory();
-        Category mainCategory = category.getParent() != null ? category.getParent() : category;
-        Category subCategory = category.getParent() != null ? category : null;
-
-        map.put("categoryId", category.getId());
-        map.put("categoryName", category.getName());
+        Category displayCategory = subCategory != null ? subCategory : mainCategory;
+        map.put("categoryId", displayCategory != null ? displayCategory.getId() : null);
+        map.put("categoryName", displayCategory != null ? displayCategory.getName() : null);
         map.put("mainCategoryId", mainCategory.getId());
         map.put("mainCategoryName", mainCategory.getName());
         map.put("subCategoryId", subCategory != null ? subCategory.getId() : null);
@@ -421,36 +457,6 @@ public class ApiAdminController {
             result.put("subCategories", subCategories.stream().map(sub -> toCategoryAdminSummary(sub, false)).collect(Collectors.toList()));
         }
         return result;
-    }
-
-    private Category resolveProductCategory(Long categoryId, Long mainCategoryId, Long subCategoryId) {
-        if (subCategoryId != null) {
-            Category subCategory = categoryRepository.findById(subCategoryId)
-                    .orElseThrow(() -> new IllegalArgumentException("Danh mục phụ không tồn tại"));
-            if (subCategory.getParent() == null) {
-                throw new IllegalArgumentException("Danh mục phụ không hợp lệ");
-            }
-            if (mainCategoryId != null && !subCategory.getParent().getId().equals(mainCategoryId)) {
-                throw new IllegalArgumentException("Danh mục phụ không thuộc danh mục chính đã chọn");
-            }
-            return subCategory;
-        }
-
-        if (categoryId != null) {
-            return categoryRepository.findById(categoryId)
-                    .orElseThrow(() -> new IllegalArgumentException("Danh mục không tồn tại"));
-        }
-
-        if (mainCategoryId != null) {
-            Category mainCategory = categoryRepository.findById(mainCategoryId)
-                    .orElseThrow(() -> new IllegalArgumentException("Danh mục chính không tồn tại"));
-            if (mainCategory.getParent() != null) {
-                throw new IllegalArgumentException("Danh mục chính không hợp lệ");
-            }
-            return mainCategory;
-        }
-
-        return null;
     }
 
     // ===== ORDER MANAGEMENT =====
@@ -697,6 +703,48 @@ public class ApiAdminController {
 
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", "Tên quyền không hợp lệ: " + roleNameStr));
+        }
+    }
+
+    private void resolveAndSetCategories(Product product, Long categoryId, Long mainCategoryId, Long subCategoryId) {
+        // Support new hierarchical categories
+        if (subCategoryId != null) {
+            Category subCategory = categoryRepository.findById(subCategoryId)
+                    .orElseThrow(() -> new IllegalArgumentException("Danh mục phụ không tồn tại"));
+            if (subCategory.getParent() == null) {
+                throw new IllegalArgumentException("Danh mục phụ không hợp lệ");
+            }
+            if (mainCategoryId != null && !subCategory.getParent().getId().equals(mainCategoryId)) {
+                throw new IllegalArgumentException("Danh mục phụ không thuộc danh mục chính đã chọn");
+            }
+            product.setSubCategory(subCategory);
+            product.setMainCategory(subCategory.getParent());
+            product.setCategory(subCategory);
+        } else if (mainCategoryId != null) {
+            Category mainCategory = categoryRepository.findById(mainCategoryId)
+                    .orElseThrow(() -> new IllegalArgumentException("Danh mục chính không tồn tại"));
+            if (mainCategory.getParent() != null) {
+                throw new IllegalArgumentException("Danh mục chính không hợp lệ");
+            }
+            product.setMainCategory(mainCategory);
+            product.setSubCategory(null);
+            product.setCategory(mainCategory);
+        } else if (categoryId != null) {
+            // Backward compatibility with old category field
+            Category category = categoryRepository.findById(categoryId)
+                    .orElseThrow(() -> new IllegalArgumentException("Danh mục không tồn tại"));
+            if (category.getParent() != null) {
+                product.setSubCategory(category);
+                product.setMainCategory(category.getParent());
+            } else {
+                product.setMainCategory(category);
+                product.setSubCategory(null);
+            }
+            product.setCategory(category); // Keep for backward compatibility
+        } else {
+            product.setMainCategory(null);
+            product.setSubCategory(null);
+            product.setCategory(null);
         }
     }
 }

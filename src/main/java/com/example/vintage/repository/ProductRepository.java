@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
@@ -17,10 +18,20 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     Page<Product> findByActiveTrueAndCategoryId(Long categoryId, Pageable pageable);
 
-    @Query("SELECT p FROM Product p WHERE p.active = true AND (p.category.id = :mainCategoryId OR p.category.parent.id = :mainCategoryId)")
-    Page<Product> findByActiveTrueAndMainCategoryId(@Param("mainCategoryId") Long mainCategoryId, Pageable pageable);
+    // Methods for hierarchical categories
+    Page<Product> findByActiveTrueAndMainCategoryId(Long mainCategoryId, Pageable pageable);
+
+    Page<Product> findByActiveTrueAndSubCategoryId(Long subCategoryId, Pageable pageable);
+
+    // Find by productCode
+    Optional<Product> findByProductCode(String productCode);
+
+    List<Product> findByFeaturedTrue();
 
     List<Product> findByActiveTrueAndFeaturedTrue();
+
+    @Query("SELECT p FROM Product p WHERE p.active = true AND (LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(p.productCode) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+    Page<Product> searchByNameOrProductCode(@Param("keyword") String keyword, Pageable pageable);
 
     @Query("SELECT p FROM Product p WHERE p.active = true AND " +
            "(LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
@@ -40,3 +51,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
                                                     @Param("excludeId") Long excludeId,
                                                     Pageable pageable);
 }
+
+
+
+
