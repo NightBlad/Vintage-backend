@@ -11,7 +11,6 @@ import com.example.vintage.service.SessionService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -37,7 +36,7 @@ public class ApiOrderController {
 
     /**
      * GET /api/orders
-     * Lấy danh sách đơn hàng của user hiện tại
+     * Lấy danh sách đơn hàng của user hiện tại (trả về dạng Page cho frontend)
      */
     @GetMapping
     public ResponseEntity<?> getMyOrders() {
@@ -46,7 +45,16 @@ public class ApiOrderController {
             return ResponseEntity.status(401).body(Map.of("error", "Chưa đăng nhập"));
         }
         List<Order> orders = orderService.findOrdersByUser(currentUser);
-        return ResponseEntity.ok(orders.stream().map(this::toOrderSummary).collect(Collectors.toList()));
+        List<Map<String, Object>> content = orders.stream().map(this::toOrderSummary).collect(Collectors.toList());
+        return ResponseEntity.ok(Map.of(
+                "content", content,
+                "totalElements", content.size(),
+                "totalPages", 1,
+                "number", 0,
+                "size", content.size(),
+                "first", true,
+                "last", true
+        ));
     }
 
     /**
@@ -143,6 +151,32 @@ public class ApiOrderController {
     }
 
     /**
+     * PUT /api/orders/{id}/pay
+     * Thanh toán đơn hàng
+     * Body: { "transactionRef": "..." } (bắt buộc cho BANK_TRANSFER, CREDIT_CARD, E_WALLET; không cần cho COD)
+     */
+    @PutMapping("/{id}/pay")
+    public ResponseEntity<?> payOrder(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body) {
+        User currentUser = sessionService.getCurrentUser();
+        if (currentUser == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Vui lòng đăng nhập để thanh toán"));
+        }
+        try {
+            String transactionRef = (body != null) ? body.get("transactionRef") : null;
+            Order order = orderService.processPayment(id, transactionRef, currentUser);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Thanh toán thành công!",
+                    "orderId", order.getId(),
+                    "orderNumber", order.getOrderNumber(),
+                    "paymentStatus", order.getPaymentStatus().name(),
+                    "totalAmount", order.getTotalAmount()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
      * PUT /api/orders/{id}/confirm
      * Xác nhận đơn hàng
      */
@@ -165,6 +199,32 @@ public class ApiOrderController {
 
     // ===== Helper methods =====
 
+    private Map<String, Object> toItemMap(com.example.vintage.entity.OrderItem item) {
+        Map<String, Object> i = new java.util.HashMap<>();
+        i.put("id", item.getId());
+        i.put("quantity", item.getQuantity());
+        i.put("price", item.getPrice());
+        i.put("unitPrice", item.getPrice());
+        i.put("totalPrice", item.getTotalPrice());
+        i.put("subtotal", item.getTotalPrice());
+        if (item.getProduct() != null) {
+            i.put("productId", item.getProduct().getId());
+            i.put("productName", item.getProduct().getName());
+            i.put("productCode", item.getProduct().getProductCode());
+            String imgUrl = item.getProduct().getImageUrl();
+            i.put("productImage", imgUrl != null ? "/uploads/" + imgUrl : null);
+            Map<String, Object> product = new java.util.HashMap<>();
+            product.put("id", item.getProduct().getId());
+            product.put("name", item.getProduct().getName());
+            product.put("productCode", item.getProduct().getProductCode());
+            product.put("imageUrl", imgUrl != null ? "/uploads/" + imgUrl : null);
+            product.put("price", item.getProduct().getPrice());
+            product.put("salePrice", item.getProduct().getSalePrice());
+            i.put("product", product);
+        }
+        return i;
+    }
+
     private Map<String, Object> toOrderSummary(Order o) {
         Map<String, Object> map = new java.util.HashMap<>();
         map.put("id", o.getId());
@@ -179,6 +239,8 @@ public class ApiOrderController {
         map.put("shippingAddress", o.getShippingAddress());
         map.put("orderDate", o.getOrderDate());
         map.put("itemCount", o.getOrderItems().size());
+        map.put("orderItems", o.getOrderItems().stream()
+                .map(this::toItemMap).collect(Collectors.toList()));
         return map;
     }
 
@@ -186,20 +248,6 @@ public class ApiOrderController {
         Map<String, Object> map = new java.util.HashMap<>(toOrderSummary(o));
         map.put("notes", o.getNotes());
         map.put("updatedAt", o.getUpdatedAt());
-        map.put("items", o.getOrderItems().stream().map(item -> {
-            Map<String, Object> i = new java.util.HashMap<>();
-            i.put("id", item.getId());
-            i.put("quantity", item.getQuantity());
-            i.put("price", item.getPrice());
-            i.put("totalPrice", item.getTotalPrice());
-            if (item.getProduct() != null) {
-                i.put("productId", item.getProduct().getId());
-                i.put("productName", item.getProduct().getName());
-                i.put("productImage", item.getProduct().getImageUrl() != null
-                        ? "/uploads/" + item.getProduct().getImageUrl() : null);
-            }
-            return i;
-        }).collect(Collectors.toList()));
         return map;
     }
 }

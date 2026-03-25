@@ -5,6 +5,7 @@ import com.example.vintage.entity.*;
 import com.example.vintage.repository.*;
 import com.example.vintage.service.FileUploadService;
 import com.example.vintage.service.InventoryService;
+import com.example.vintage.service.OrderService;
 import com.example.vintage.service.ProductService;
 import com.example.vintage.entity.RoleName;
 import org.springframework.data.domain.Page;
@@ -18,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -39,6 +39,7 @@ public class ApiAdminController {
     private final FileUploadService fileUploadService;
     private final ProductService productService;
     private final InventoryService inventoryService;
+    private final OrderService orderService;
 
     public ApiAdminController(ProductRepository productRepository,
                                CategoryRepository categoryRepository,
@@ -47,7 +48,8 @@ public class ApiAdminController {
                                RoleRepository roleRepository,
                                FileUploadService fileUploadService,
                                ProductService productService,
-                               InventoryService inventoryService) {
+                               InventoryService inventoryService,
+                               OrderService orderService) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
         this.orderRepository = orderRepository;
@@ -56,6 +58,7 @@ public class ApiAdminController {
         this.fileUploadService = fileUploadService;
         this.productService = productService;
         this.inventoryService = inventoryService;
+        this.orderService = orderService;
     }
 
     // ===== DASHBOARD =====
@@ -492,8 +495,8 @@ public class ApiAdminController {
         Category displayCategory = subCategory != null ? subCategory : mainCategory;
         map.put("categoryId", displayCategory != null ? displayCategory.getId() : null);
         map.put("categoryName", displayCategory != null ? displayCategory.getName() : null);
-        map.put("mainCategoryId", mainCategory.getId());
-        map.put("mainCategoryName", mainCategory.getName());
+        map.put("mainCategoryId", mainCategory != null ? mainCategory.getId() : null);
+        map.put("mainCategoryName", mainCategory != null ? mainCategory.getName() : null);
         map.put("subCategoryId", subCategory != null ? subCategory.getId() : null);
         map.put("subCategoryName", subCategory != null ? subCategory.getName() : null);
     }
@@ -604,12 +607,25 @@ public class ApiAdminController {
         if (order == null) return ResponseEntity.notFound().build();
         try {
             OrderStatus status = OrderStatus.valueOf(body.get("status").toUpperCase());
-            order.setStatus(status);
-            order.setUpdatedAt(LocalDateTime.now());
-            orderRepository.save(order);
+            orderService.updateOrderStatus(order.getId(), status);
             return ResponseEntity.ok(Map.of("message", "Cập nhật trạng thái đơn hàng thành công"));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", "Trạng thái không hợp lệ"));
+        }
+    }
+
+    @PutMapping("/orders/{id}/payment")
+    public ResponseEntity<?> confirmOrderPayment(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body) {
+        try {
+            String transactionRef = (body != null) ? body.get("transactionRef") : null;
+            Order order = orderService.confirmPayment(id, transactionRef);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Xác nhận thanh toán thành công",
+                    "orderId", order.getId(),
+                    "paymentStatus", order.getPaymentStatus().name()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 

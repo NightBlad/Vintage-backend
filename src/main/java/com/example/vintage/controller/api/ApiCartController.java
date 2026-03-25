@@ -1,9 +1,12 @@
 package com.example.vintage.controller.api;
 
+import com.example.vintage.entity.Order;
 import com.example.vintage.entity.Product;
+import com.example.vintage.entity.User;
 import com.example.vintage.repository.ProductRepository;
 import com.example.vintage.service.CartService;
 import com.example.vintage.service.InventoryService;
+import com.example.vintage.service.OrderService;
 import com.example.vintage.service.SessionService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,15 +24,18 @@ public class ApiCartController {
     private final ProductRepository productRepository;
     private final SessionService sessionService;
     private final InventoryService inventoryService;
+    private final OrderService orderService;
 
     public ApiCartController(CartService cartService,
                              ProductRepository productRepository,
                              SessionService sessionService,
-                             InventoryService inventoryService) {
+                             InventoryService inventoryService,
+                             OrderService orderService) {
         this.cartService = cartService;
         this.productRepository = productRepository;
         this.sessionService = sessionService;
         this.inventoryService = inventoryService;
+        this.orderService = orderService;
     }
 
     /**
@@ -115,8 +121,18 @@ public class ApiCartController {
      */
     @PutMapping("/update")
     public ResponseEntity<?> updateCart(@RequestBody Map<String, Object> body) {
-        Long productId = Long.valueOf(body.get("productId").toString());
-        int quantity = Integer.parseInt(body.get("quantity").toString());
+        if (body == null || !body.containsKey("productId") || !body.containsKey("quantity")) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Thiếu productId hoặc quantity"));
+        }
+
+        Long productId;
+        int quantity;
+        try {
+            productId = Long.valueOf(body.get("productId").toString().trim());
+            quantity = Integer.parseInt(body.get("quantity").toString().trim());
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Dữ liệu productId/quantity không hợp lệ"));
+        }
 
         Product product = productRepository.findById(productId).orElse(null);
         if (product == null) {
@@ -172,5 +188,55 @@ public class ApiCartController {
     @GetMapping("/count")
     public ResponseEntity<?> getCartCount() {
         return ResponseEntity.ok(Map.of("totalItems", cartService.getTotalItems()));
+    }
+
+    /**
+     * POST /api/cart/place-order
+     * Đặt hàng từ giỏ hàng hiện tại
+     * Body: { "fullName": "...", "phone": "...", "address": "...", "notes": "...", "paymentMethod": "COD" }
+     */
+    @PostMapping("/place-order")
+    public ResponseEntity<?> placeOrder(@RequestBody Map<String, String> body) {
+        User currentUser = sessionService.getCurrentUser();
+        if (currentUser == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Vui lòng đăng nhập để đặt hàng"));
+        }
+
+        Map<Product, Integer> cartItems = cartService.getCartItems();
+        if (cartItems.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Giỏ hàng trống"));
+        }
+
+        String fullName = body.get("fullName");
+        String phone = body.get("phone");
+        String address = body.get("address");
+        String notes = body.getOrDefault("notes", "");
+        String paymentMethod = body.getOrDefault("paymentMethod", "COD");
+
+        if (fullName == null || fullName.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Họ tên không được để trống"));
+        }
+        if (phone == null || phone.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Số điện thoại không được để trống"));
+        }
+        if (address == null || address.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Địa chỉ không được để trống"));
+        }
+
+        try {
+            Order order = orderService.createOrder(cartItems, fullName, phone, address, notes, paymentMethod, currentUser);
+            cartService.clearCart();
+            return ResponseEntity.ok(Map.of(
+                    "message", "Đặt hàng thành công!",
+                    "orderId", order.getId(),
+                    "orderNumber", order.getOrderNumber(),
+                    "totalAmount", order.getTotalAmount(),
+                    "shippingFee", order.getShippingFee(),
+                    "paymentMethod", order.getPaymentMethod().name(),
+                    "paymentStatus", order.getPaymentStatus().name()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 }

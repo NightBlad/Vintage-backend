@@ -88,6 +88,8 @@ public class SecurityConfig {
                 ).permitAll()
                 // Admin API endpoints
                 .requestMatchers("/api/admin/**", "/api/v1/admin/**").hasRole("ADMIN")
+                // Inventory management endpoints (admin only)
+                .requestMatchers("/api/inventory/**", "/api/v1/inventory/**").hasRole("ADMIN")
                 // Authenticated user endpoints
                 .requestMatchers(
                     "/api/account/**", "/api/v1/account/**",

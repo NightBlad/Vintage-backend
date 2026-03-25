@@ -30,16 +30,6 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     @Override
     @Transactional
     public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
-        // Tạm thời tắt kiểm tra account lockout để sửa lỗi database
-        // TODO: Bật lại sau khi sửa database schema
-        /*
-        if (loginAttemptService.isAccountLocked(usernameOrEmail)) {
-            long remainingTime = loginAttemptService.getRemainingLockoutMinutes(usernameOrEmail);
-            throw new LockedException("Tài khoản đã bị khóa do nhập sai mật khẩu quá nhiều lần. " +
-                    "Vui lòng thử lại sau " + remainingTime + " phút.");
-        }
-        */
-
         // 1. Tìm user theo username hoặc email
         User user = userRepository.findByUsername(usernameOrEmail)
                 .orElseGet(() -> userRepository.findByEmail(usernameOrEmail)

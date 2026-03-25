@@ -67,8 +67,8 @@ public class CartService {
         return cart.values().stream().mapToInt(Integer::intValue).sum();
     }
 
-    public double getTotalAmount() {
-        double total = 0.0;
+    public BigDecimal getTotalAmount() {
+        BigDecimal total = BigDecimal.ZERO;
 
         for (Map.Entry<Long, Integer> entry : cart.entrySet()) {
             Long productId = entry.getKey();
@@ -80,7 +80,7 @@ public class CartService {
                     ? product.getSalePrice()
                     : product.getPrice();
 
-                total += price.doubleValue() * quantity;
+                total = total.add(price.multiply(BigDecimal.valueOf(quantity)));
             }
         }
 
