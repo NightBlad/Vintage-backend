@@ -298,6 +298,12 @@ public class DataInitializer implements CommandLineRunner {
         product.setCountry(country);
         product.setDosageForm(dosageForm);
         product.setPackaging(packaging);
+        if (category != null && category.getParent() != null) {
+            product.setSubCategory(category);
+            product.setMainCategory(category.getParent());
+        } else if (category != null) {
+            product.setMainCategory(category);
+        }
         product.setCategory(category);
         product.setFeatured(featured);
         product.setExpiryDate(LocalDate.now().plusYears(2));

@@ -2,10 +2,7 @@ package com.example.vintage.service;
 
 import com.example.vintage.entity.*;
 import com.example.vintage.repository.OrderRepository;
-import com.example.vintage.repository.UserRepository;
 import com.example.vintage.repository.ProductRepository;
-import com.example.vintage.service.InventoryService;
-import com.example.vintage.repository.WarehouseRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,33 +18,19 @@ import java.util.List;
 public class OrderService {
 
     private final OrderRepository orderRepository;
-    private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final InventoryService inventoryService;
-    private final WarehouseRepository warehouseRepository;
 
     public OrderService(OrderRepository orderRepository,
-                       UserRepository userRepository,
                        ProductRepository productRepository,
-                       InventoryService inventoryService,
-                       WarehouseRepository warehouseRepository) {
+                       InventoryService inventoryService) {
         this.orderRepository = orderRepository;
-        this.userRepository = userRepository;
         this.productRepository = productRepository;
         this.inventoryService = inventoryService;
-        this.warehouseRepository = warehouseRepository;
     }
 
     public List<Order> findOrdersByUser(User user) {
-        // Thử cả hai cách: theo User object và theo User ID
-        List<Order> ordersByUser = orderRepository.findByUserOrderByOrderDateDesc(user);
-        List<Order> ordersByUserId = orderRepository.findByUserIdOrderByOrderDateDesc(user.getId(), org.springframework.data.domain.Pageable.unpaged()).getContent();
-
-        System.out.println("Orders found by User object: " + ordersByUser.size());
-        System.out.println("Orders found by User ID: " + ordersByUserId.size());
-
-        // Trả về kết quả có nhiều đơn hàng hơn
-        return ordersByUserId.size() > ordersByUser.size() ? ordersByUserId : ordersByUser;
+        return orderRepository.findByUserOrderByOrderDateDesc(user);
     }
 
     public Order createOrder(Map<Product, Integer> cartItems,
@@ -190,6 +173,71 @@ public class OrderService {
                     )
             );
         }
+    }
+
+    /**
+     * Xử lý thanh toán cho đơn hàng.
+     * - COD: chỉ được xác nhận thanh toán khi đơn đã DELIVERED
+     * - BANK_TRANSFER / CREDIT_CARD / E_WALLET: cần transactionRef, đơn phải ở trạng thái PENDING hoặc CONFIRMED
+     */
+    public Order processPayment(Long orderId, String transactionRef, User currentUser) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
+
+        if (!order.getUser().getId().equals(currentUser.getId())) {
+            throw new RuntimeException("Bạn không có quyền thanh toán đơn hàng này");
+        }
+
+        if (order.getPaymentStatus() == PaymentStatus.PAID) {
+            throw new RuntimeException("Đơn hàng đã được thanh toán rồi");
+        }
+
+        if (order.getPaymentStatus() == PaymentStatus.REFUNDED) {
+            throw new RuntimeException("Đơn hàng đã được hoàn tiền, không thể thanh toán lại");
+        }
+
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            throw new RuntimeException("Không thể thanh toán cho đơn hàng đã bị hủy");
+        }
+
+        PaymentMethod method = order.getPaymentMethod();
+
+        if (method == PaymentMethod.COD) {
+            if (order.getStatus() != OrderStatus.DELIVERED) {
+                throw new RuntimeException("Thanh toán COD chỉ được xác nhận khi đơn hàng đã giao thành công");
+            }
+        } else {
+            if (order.getStatus() != OrderStatus.PENDING && order.getStatus() != OrderStatus.CONFIRMED) {
+                throw new RuntimeException("Chỉ có thể thanh toán khi đơn hàng đang chờ xử lý hoặc đã xác nhận");
+            }
+            if (transactionRef == null || transactionRef.isBlank()) {
+                throw new RuntimeException("Vui lòng cung cấp mã giao dịch để xác nhận thanh toán");
+            }
+        }
+
+        order.setPaymentStatus(PaymentStatus.PAID);
+        order.setUpdatedAt(LocalDateTime.now());
+        return orderRepository.save(order);
+    }
+
+    /**
+     * Admin xác nhận thanh toán cho đơn hàng (không cần kiểm tra quyền sở hữu).
+     */
+    public Order confirmPayment(Long orderId, String transactionRef) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
+
+        if (order.getPaymentStatus() == PaymentStatus.PAID) {
+            throw new RuntimeException("Đơn hàng đã được thanh toán rồi");
+        }
+
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            throw new RuntimeException("Không thể xác nhận thanh toán cho đơn hàng đã hủy");
+        }
+
+        order.setPaymentStatus(PaymentStatus.PAID);
+        order.setUpdatedAt(LocalDateTime.now());
+        return orderRepository.save(order);
     }
 
     public List<Order> findAllOrders() {

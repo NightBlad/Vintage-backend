@@ -21,7 +21,6 @@ public class LoginAttemptService {
 
     @Transactional
     public void recordFailedAttempt(String username) {
-        System.out.println("DEBUG: Recording failed attempt for user: " + username);
         User user = findUserByUsernameOrEmail(username);
         if (user != null) {
             // Check if lockout has expired
@@ -46,7 +45,6 @@ public class LoginAttemptService {
 
     @Transactional
     public void recordSuccessfulLogin(String username) {
-        System.out.println("DEBUG: Recording successful login for user: " + username);
         User user = findUserByUsernameOrEmail(username);
         if (user != null) {
             // Use direct update to avoid validation issues
@@ -54,6 +52,7 @@ public class LoginAttemptService {
         }
     }
 
+    @Transactional
     public boolean isAccountLocked(String username) {
         User user = findUserByUsernameOrEmail(username);
         if (user == null) {
@@ -67,9 +66,7 @@ public class LoginAttemptService {
             return false;
         }
 
-        boolean isLocked = user.isAccountLocked();
-        System.out.println("DEBUG: Account " + username + " locked: " + isLocked + " (attempts: " + user.getFailedAttempts() + ")");
-        return isLocked;
+        return user.isAccountLocked();
     }
 
     public int getRemainingAttempts(String username) {
@@ -95,9 +92,7 @@ public class LoginAttemptService {
         return ChronoUnit.MINUTES.between(LocalDateTime.now(), unlockTime);
     }
 
-    @Transactional
     private void unlockAccount(User user) {
-        // Use direct update to avoid validation issues
         userRepository.updateLoginAttempts(user.getUsername(), 0, false, null);
     }
 
