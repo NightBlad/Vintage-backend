@@ -19,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -128,6 +130,7 @@ public class ApiAdminController {
                     m.put("manufacturingDate", p.getManufacturingDate());
                     m.put("expiryDate", p.getExpiryDate());
                     m.put("imageUrl", p.getImageUrl());
+                    m.put("additionalImages", p.getAdditionalImages() != null ? p.getAdditionalImages() : List.of());
                     m.put("prescriptionRequired", p.isPrescriptionRequired());
                     m.put("active", p.isActive());
                     m.put("featured", p.isFeatured());
@@ -159,10 +162,12 @@ public class ApiAdminController {
             @RequestParam(defaultValue = "false") boolean prescriptionRequired,
             @RequestParam(defaultValue = "true") boolean active,
             @RequestParam(defaultValue = "false") boolean featured,
-            @RequestParam(required = false) MultipartFile imageFile) {
+            @RequestParam(required = false) MultipartFile imageFile,
+            @RequestParam(required = false) MultipartFile image,
+            @RequestParam(required = false) List<MultipartFile> additionalImageFiles,
+            @RequestParam(required = false) List<MultipartFile> additionalImages) {
 
         try {
-            // Validate required fields
             if (name == null || name.isBlank()) {
                 throw new IllegalArgumentException("Tên sản phẩm bắt buộc");
             }
@@ -179,7 +184,6 @@ public class ApiAdminController {
                 throw new IllegalArgumentException("mainCategoryId bắt buộc");
             }
 
-            // Create product
             Product product = new Product();
             product.setName(name);
             product.setProductCode(productCode);
@@ -198,19 +202,28 @@ public class ApiAdminController {
             product.setActive(active);
             product.setFeatured(featured);
 
-            // Resolve and set categories
             resolveAndSetCategories(product, categoryId, mainCategoryId, subCategoryId);
 
-            // Handle image upload
-            if (imageFile != null && !imageFile.isEmpty()) {
-                if (!fileUploadService.isValidImageFile(imageFile)) {
+            MultipartFile mainImage = resolveMainImage(imageFile, image);
+            if (mainImage != null && !mainImage.isEmpty()) {
+                if (!fileUploadService.isValidImageFile(mainImage)) {
                     throw new IllegalArgumentException("File phải là JPG, PNG, WEBP, max 5MB");
                 }
-                String imagePath = fileUploadService.saveFile(imageFile);
-                product.setImageUrl(imagePath);
+                product.setImageUrl(fileUploadService.saveFile(mainImage));
             }
 
-            // Save product using service
+            List<MultipartFile> extraFiles = resolveAdditionalFiles(additionalImageFiles, additionalImages);
+            List<String> savedAdditional = new ArrayList<>();
+            for (MultipartFile file : extraFiles) {
+                if (file != null && !file.isEmpty()) {
+                    if (!fileUploadService.isValidImageFile(file)) {
+                        throw new IllegalArgumentException("File phải là JPG, PNG, WEBP, max 5MB");
+                    }
+                    savedAdditional.add(fileUploadService.saveFile(file));
+                }
+            }
+            product.setAdditionalImages(savedAdditional);
+
             Product saved = productService.createProduct(product);
             ProductDTO dto = productService.toDTO(saved);
 
@@ -246,7 +259,11 @@ public class ApiAdminController {
             @RequestParam(required = false) Boolean prescriptionRequired,
             @RequestParam(required = false) Boolean active,
             @RequestParam(required = false) Boolean featured,
-            @RequestParam(required = false) MultipartFile imageFile) {
+            @RequestParam(required = false) MultipartFile imageFile,
+            @RequestParam(required = false) MultipartFile image,
+            @RequestParam(required = false) List<MultipartFile> additionalImageFiles,
+            @RequestParam(required = false) List<MultipartFile> additionalImages,
+            @RequestParam(required = false) String removeAdditionalImages) {
 
         try {
             Product existing = productRepository.findById(id)
@@ -268,17 +285,42 @@ public class ApiAdminController {
             if (active != null) existing.setActive(active);
             if (featured != null) existing.setFeatured(featured);
 
-            if (imageFile != null && !imageFile.isEmpty()) {
-                if (!fileUploadService.isValidImageFile(imageFile)) {
+            MultipartFile mainImage = resolveMainImage(imageFile, image);
+            if (mainImage != null && !mainImage.isEmpty()) {
+                if (!fileUploadService.isValidImageFile(mainImage)) {
                     throw new IllegalArgumentException("File phải là JPG, PNG, WEBP, max 5MB");
                 }
                 String oldImage = existing.getImageUrl();
-                String newImagePath = fileUploadService.saveFile(imageFile);
-                existing.setImageUrl(newImagePath);
+                existing.setImageUrl(fileUploadService.saveFile(mainImage));
                 if (oldImage != null && !oldImage.isEmpty()) {
                     fileUploadService.deleteFile(oldImage);
                 }
             }
+
+            // Handle removal of additional images
+            List<String> currentAdditional = existing.getAdditionalImages() != null
+                    ? new ArrayList<>(existing.getAdditionalImages()) : new ArrayList<>();
+            if (removeAdditionalImages != null && !removeAdditionalImages.isBlank()) {
+                List<String> toRemove = Arrays.asList(removeAdditionalImages.split(","));
+                for (String imgUrl : toRemove) {
+                    String trimmed = imgUrl.trim();
+                    if (currentAdditional.remove(trimmed)) {
+                        fileUploadService.deleteFile(trimmed);
+                    }
+                }
+            }
+
+            // Handle new additional images
+            List<MultipartFile> extraFiles = resolveAdditionalFiles(additionalImageFiles, additionalImages);
+            for (MultipartFile file : extraFiles) {
+                if (file != null && !file.isEmpty()) {
+                    if (!fileUploadService.isValidImageFile(file)) {
+                        throw new IllegalArgumentException("File phải là JPG, PNG, WEBP, max 5MB");
+                    }
+                    currentAdditional.add(fileUploadService.saveFile(file));
+                }
+            }
+            existing.setAdditionalImages(currentAdditional);
 
             resolveAndSetCategories(existing, categoryId, mainCategoryId, subCategoryId);
 
@@ -722,6 +764,18 @@ public class ApiAdminController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", "Tên quyền không hợp lệ: " + roleNameStr));
         }
+    }
+
+    private MultipartFile resolveMainImage(MultipartFile imageFile, MultipartFile image) {
+        if (imageFile != null && !imageFile.isEmpty()) return imageFile;
+        if (image != null && !image.isEmpty()) return image;
+        return null;
+    }
+
+    private List<MultipartFile> resolveAdditionalFiles(List<MultipartFile> additionalImageFiles, List<MultipartFile> additionalImages) {
+        if (additionalImageFiles != null && !additionalImageFiles.isEmpty()) return additionalImageFiles;
+        if (additionalImages != null && !additionalImages.isEmpty()) return additionalImages;
+        return List.of();
     }
 
     private void resolveAndSetCategories(Product product, Long categoryId, Long mainCategoryId, Long subCategoryId) {

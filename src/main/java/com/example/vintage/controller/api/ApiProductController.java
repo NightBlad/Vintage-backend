@@ -195,6 +195,7 @@ public class ApiProductController {
         map.put("manufacturingDate", p.getManufacturingDate());
         map.put("expiryDate", p.getExpiryDate());
         map.put("createdAt", p.getCreatedAt());
+        map.put("additionalImages", p.getAdditionalImages() != null ? p.getAdditionalImages() : List.of());
         return map;
     }
 

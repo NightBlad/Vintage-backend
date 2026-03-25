@@ -102,7 +102,9 @@ public class ProductService {
         if (updates.getPackaging() != null) existing.setPackaging(updates.getPackaging());
         if (updates.getManufacturingDate() != null) existing.setManufacturingDate(updates.getManufacturingDate());
         if (updates.getExpiryDate() != null) existing.setExpiryDate(updates.getExpiryDate());
-        
+        if (updates.getImageUrl() != null) existing.setImageUrl(updates.getImageUrl());
+        if (updates.getAdditionalImages() != null) existing.setAdditionalImages(updates.getAdditionalImages());
+
         existing.setPrescriptionRequired(updates.isPrescriptionRequired());
         existing.setActive(updates.isActive());
         existing.setFeatured(updates.isFeatured());
@@ -156,6 +158,9 @@ public class ProductService {
                 .orElseThrow(() -> new IllegalArgumentException("Sản phẩm không tồn tại"));
         if (product.getImageUrl() != null && !product.getImageUrl().isEmpty()) {
             fileUploadService.deleteFile(product.getImageUrl());
+        }
+        if (product.getAdditionalImages() != null) {
+            product.getAdditionalImages().forEach(fileUploadService::deleteFile);
         }
         productRepository.deleteById(id);
     }
@@ -244,6 +249,7 @@ public class ProductService {
         dto.setManufacturingDate(product.getManufacturingDate());
         dto.setExpiryDate(product.getExpiryDate());
         dto.setImageUrl(product.getImageUrl());
+        dto.setAdditionalImages(product.getAdditionalImages());
         dto.setPrescriptionRequired(product.isPrescriptionRequired());
         dto.setActive(product.isActive());
         dto.setFeatured(product.isFeatured());

@@ -7,7 +7,9 @@ import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -57,7 +59,11 @@ public class Product {
     private LocalDate expiryDate; // Ngày hết hạn
     
     private String imageUrl;
-    private String[] additionalImages; // Ảnh bổ sung
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "product_images", joinColumns = @JoinColumn(name = "product_id"))
+    @Column(name = "image_url")
+    private List<String> additionalImages = new ArrayList<>();
     
     private boolean prescriptionRequired = false; // Cần toa bác sĩ
     private boolean active = true;
@@ -160,8 +166,8 @@ public class Product {
     public String getImageUrl() { return imageUrl; }
     public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
     
-    public String[] getAdditionalImages() { return additionalImages; }
-    public void setAdditionalImages(String[] additionalImages) { this.additionalImages = additionalImages; }
+    public List<String> getAdditionalImages() { return additionalImages; }
+    public void setAdditionalImages(List<String> additionalImages) { this.additionalImages = additionalImages != null ? additionalImages : new ArrayList<>(); }
     
     public boolean isPrescriptionRequired() { return prescriptionRequired; }
     public void setPrescriptionRequired(boolean prescriptionRequired) { this.prescriptionRequired = prescriptionRequired; }

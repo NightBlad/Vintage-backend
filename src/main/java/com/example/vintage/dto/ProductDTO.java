@@ -24,6 +24,7 @@ public class ProductDTO {
     private LocalDate manufacturingDate;
     private LocalDate expiryDate;
     private String imageUrl;
+    private List<String> additionalImages;
     private boolean prescriptionRequired;
     private boolean active;
     private boolean featured;
@@ -105,6 +106,9 @@ public class ProductDTO {
 
     public String getImageUrl() { return imageUrl; }
     public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+
+    public List<String> getAdditionalImages() { return additionalImages; }
+    public void setAdditionalImages(List<String> additionalImages) { this.additionalImages = additionalImages; }
 
     public boolean isPrescriptionRequired() { return prescriptionRequired; }
     public void setPrescriptionRequired(boolean prescriptionRequired) { this.prescriptionRequired = prescriptionRequired; }
