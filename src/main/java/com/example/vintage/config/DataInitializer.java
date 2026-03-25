@@ -2,6 +2,7 @@ package com.example.vintage.config;
 
 import com.example.vintage.entity.*;
 import com.example.vintage.repository.*;
+import com.example.vintage.service.InventoryService;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -15,7 +16,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-// Bật lại DataInitializer để có dữ liệu CRUD
 @Component
 @Transactional
 public class DataInitializer implements CommandLineRunner {
@@ -25,15 +25,17 @@ public class DataInitializer implements CommandLineRunner {
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
     private final PasswordEncoder passwordEncoder;
+    private final InventoryService inventoryService;
 
     public DataInitializer(RoleRepository roleRepository, UserRepository userRepository,
                           CategoryRepository categoryRepository, ProductRepository productRepository,
-                          PasswordEncoder passwordEncoder) {
+                          PasswordEncoder passwordEncoder, InventoryService inventoryService) {
         this.roleRepository = roleRepository;
         this.userRepository = userRepository;
         this.categoryRepository = categoryRepository;
         this.productRepository = productRepository;
         this.passwordEncoder = passwordEncoder;
+        this.inventoryService = inventoryService;
     }
 
     @Override
@@ -43,6 +45,7 @@ public class DataInitializer implements CommandLineRunner {
         initializeCategories();
         migrateExistingCategoriesToHierarchy();
         initializeProducts();
+        initializeInventory();
     }
 
     private void initializeRoles() {
@@ -358,5 +361,13 @@ public class DataInitializer implements CommandLineRunner {
         Category fallback = new Category(fallbackName, "Danh mục phụ mặc định cho " + rootCategory.getName());
         fallback.setParent(rootCategory);
         return categoryRepository.save(fallback);
+    }
+
+    private void initializeInventory() {
+        inventoryService.ensureDefaultWarehouse();
+        int migrated = inventoryService.migrateExistingProductStock();
+        if (migrated > 0) {
+            System.out.println("Đã chuyển đổi tồn kho cho " + migrated + " sản phẩm sang hệ thống kho mới");
+        }
     }
 }

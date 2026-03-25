@@ -55,7 +55,7 @@ public class ApiCartController {
             item.put("originalPrice", p.getPrice());
             item.put("quantity", qty);
             item.put("subtotal", price.multiply(BigDecimal.valueOf(qty)));
-            item.put("stockQuantity", p.getStockQuantity());
+            item.put("stockQuantity", inventoryService.getAvailableQuantity(p));
             items.add(item);
         }
 

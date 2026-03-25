@@ -1,5 +1,6 @@
 package com.example.vintage.service;
 
+import com.example.vintage.dto.InventoryDTO;
 import com.example.vintage.dto.ProductDTO;
 import com.example.vintage.entity.Category;
 import com.example.vintage.entity.Product;
@@ -20,25 +21,27 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final FileUploadService fileUploadService;
+    private final InventoryService inventoryService;
 
     public ProductService(ProductRepository productRepository, 
                          CategoryRepository categoryRepository,
-                         FileUploadService fileUploadService) {
+                         FileUploadService fileUploadService,
+                         InventoryService inventoryService) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
         this.fileUploadService = fileUploadService;
+        this.inventoryService = inventoryService;
     }
 
     /**
-     * Create new product with category validation
+     * Create new product with category validation.
+     * After saving, initializes inventory in the default warehouse.
      */
     public Product createProduct(Product product) {
-        // Validate productCode uniqueness
         if (productRepository.existsByProductCode(product.getProductCode())) {
             throw new IllegalArgumentException("Mã sản phẩm đã tồn tại");
         }
 
-        // Validate categories if provided
         if (product.getMainCategory() != null) {
             Category mainCat = categoryRepository.findById(product.getMainCategory().getId())
                     .orElseThrow(() -> new IllegalArgumentException("Danh mục chính không tồn tại"));
@@ -54,7 +57,6 @@ public class ProductService {
             if (subCat.getParent() == null) {
                 throw new IllegalArgumentException("Danh mục phụ không hợp lệ");
             }
-            // Validate subCategory belongs to mainCategory
             if (product.getMainCategory() != null && 
                 !subCat.getParent().getId().equals(product.getMainCategory().getId())) {
                 throw new IllegalArgumentException("Danh mục phụ không thuộc danh mục chính");
@@ -68,17 +70,25 @@ public class ProductService {
             product.setCategory(product.getMainCategory());
         }
 
-        return productRepository.save(product);
+        int initialStock = product.getStockQuantity() != null ? product.getStockQuantity() : 0;
+        product.setStockQuantity(0);
+        Product saved = productRepository.save(product);
+
+        if (initialStock > 0) {
+            inventoryService.initializeProductStock(saved, initialStock);
+        }
+
+        return saved;
     }
 
     /**
-     * Update existing product with category validation
+     * Update existing product with category validation.
+     * Stock changes go through InventoryService.
      */
     public Product updateProduct(Long id, Product updates) {
         Product existing = productRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Sản phẩm không tồn tại"));
 
-        // Update basic fields
         if (updates.getName() != null) existing.setName(updates.getName());
         if (updates.getDescription() != null) existing.setDescription(updates.getDescription());
         if (updates.getIngredients() != null) existing.setIngredients(updates.getIngredients());
@@ -86,7 +96,6 @@ public class ProductService {
         if (updates.getContraindications() != null) existing.setContraindications(updates.getContraindications());
         if (updates.getPrice() != null) existing.setPrice(updates.getPrice());
         if (updates.getSalePrice() != null) existing.setSalePrice(updates.getSalePrice());
-        if (updates.getStockQuantity() != null) existing.setStockQuantity(updates.getStockQuantity());
         if (updates.getManufacturer() != null) existing.setManufacturer(updates.getManufacturer());
         if (updates.getCountry() != null) existing.setCountry(updates.getCountry());
         if (updates.getDosageForm() != null) existing.setDosageForm(updates.getDosageForm());
@@ -98,7 +107,6 @@ public class ProductService {
         existing.setActive(updates.isActive());
         existing.setFeatured(updates.isFeatured());
 
-        // Validate and update productCode if changed
         if (updates.getProductCode() != null && !updates.getProductCode().equals(existing.getProductCode())) {
             if (productRepository.existsByProductCode(updates.getProductCode())) {
                 throw new IllegalArgumentException("Mã sản phẩm đã tồn tại");
@@ -106,7 +114,6 @@ public class ProductService {
             existing.setProductCode(updates.getProductCode());
         }
 
-        // Validate and update categories if provided
         if (updates.getMainCategory() != null) {
             Category mainCat = categoryRepository.findById(updates.getMainCategory().getId())
                     .orElseThrow(() -> new IllegalArgumentException("Danh mục chính không tồn tại"));
@@ -137,9 +144,6 @@ public class ProductService {
         return productRepository.save(existing);
     }
 
-    /**
-     * Soft delete product (set active = false)
-     */
     public void deleteProduct(Long id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Sản phẩm không tồn tại"));
@@ -147,18 +151,12 @@ public class ProductService {
         productRepository.save(product);
     }
 
-    /**
-     * Hard delete product (delete file and record)
-     */
     public void hardDeleteProduct(Long id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Sản phẩm không tồn tại"));
-        
-        // Delete image file if exists
         if (product.getImageUrl() != null && !product.getImageUrl().isEmpty()) {
             fileUploadService.deleteFile(product.getImageUrl());
         }
-        
         productRepository.deleteById(id);
     }
 
@@ -203,22 +201,28 @@ public class ProductService {
         return productRepository.existsByProductCode(productCode);
     }
 
+    /**
+     * Adjust stock via inventory system. Use for order-related stock changes.
+     */
     public void updateStock(Long productId, Integer quantity) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new IllegalArgumentException("Sản phẩm không tồn tại"));
-        product.setStockQuantity(product.getStockQuantity() - quantity);
-        productRepository.save(product);
-    }
-
-    public void restoreStock(Long productId, Integer quantity) {
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new IllegalArgumentException("Sản phẩm không tồn tại"));
-        product.setStockQuantity(product.getStockQuantity() + quantity);
-        productRepository.save(product);
+        inventoryService.exportStock(product, inventoryService.getDefaultWarehouse(),
+                quantity, null, "Trừ kho từ hệ thống");
     }
 
     /**
-     * Convert Product entity to ProductDTO
+     * Restore stock via inventory system. Use for order cancellation.
+     */
+    public void restoreStock(Long productId, Integer quantity) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new IllegalArgumentException("Sản phẩm không tồn tại"));
+        inventoryService.importStock(product, inventoryService.getDefaultWarehouse(),
+                quantity, null, "Hoàn kho từ hệ thống");
+    }
+
+    /**
+     * Convert Product entity to ProductDTO with inventory information.
      */
     public ProductDTO toDTO(Product product) {
         if (product == null) return null;
@@ -233,7 +237,6 @@ public class ProductService {
         dto.setContraindications(product.getContraindications());
         dto.setPrice(product.getPrice());
         dto.setSalePrice(product.getSalePrice());
-        dto.setStockQuantity(product.getStockQuantity());
         dto.setManufacturer(product.getManufacturer());
         dto.setCountry(product.getCountry());
         dto.setDosageForm(product.getDosageForm());
@@ -247,7 +250,13 @@ public class ProductService {
         dto.setCreatedAt(product.getCreatedAt());
         dto.setUpdatedAt(product.getUpdatedAt());
 
-        // Set category information
+        int totalInventoryStock = inventoryService.getAvailableQuantity(product);
+        dto.setStockQuantity(totalInventoryStock);
+        dto.setTotalInventoryStock(totalInventoryStock);
+
+        List<InventoryDTO> inventoryDetails = inventoryService.getInventoryByProduct(product.getId());
+        dto.setInventoryDetails(inventoryDetails);
+
         if (product.getMainCategory() != null) {
             dto.setMainCategoryId(product.getMainCategory().getId());
             dto.setMainCategoryName(product.getMainCategory().getName());
@@ -260,5 +269,3 @@ public class ProductService {
         return dto;
     }
 }
-
-

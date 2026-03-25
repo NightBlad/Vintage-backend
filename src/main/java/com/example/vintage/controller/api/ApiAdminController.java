@@ -4,6 +4,7 @@ import com.example.vintage.dto.ProductDTO;
 import com.example.vintage.entity.*;
 import com.example.vintage.repository.*;
 import com.example.vintage.service.FileUploadService;
+import com.example.vintage.service.InventoryService;
 import com.example.vintage.service.ProductService;
 import com.example.vintage.entity.RoleName;
 import org.springframework.data.domain.Page;
@@ -17,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
@@ -36,6 +36,7 @@ public class ApiAdminController {
     private final RoleRepository roleRepository;
     private final FileUploadService fileUploadService;
     private final ProductService productService;
+    private final InventoryService inventoryService;
 
     public ApiAdminController(ProductRepository productRepository,
                                CategoryRepository categoryRepository,
@@ -43,7 +44,8 @@ public class ApiAdminController {
                                UserRepository userRepository,
                                RoleRepository roleRepository,
                                FileUploadService fileUploadService,
-                               ProductService productService) {
+                               ProductService productService,
+                               InventoryService inventoryService) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
         this.orderRepository = orderRepository;
@@ -51,6 +53,7 @@ public class ApiAdminController {
         this.roleRepository = roleRepository;
         this.fileUploadService = fileUploadService;
         this.productService = productService;
+        this.inventoryService = inventoryService;
     }
 
     // ===== DASHBOARD =====
@@ -62,8 +65,14 @@ public class ApiAdminController {
                 "totalCategories", categoryRepository.count(),
                 "totalUsers", userRepository.count(),
                 "totalOrders", orderRepository.count(),
-                "lowStockProducts", productRepository.findByStockQuantityLessThan(10).stream()
-                        .map(p -> Map.of("id", p.getId(), "name", p.getName(), "stockQuantity", p.getStockQuantity()))
+                "totalWarehouses", inventoryService.getAllWarehouses().size(),
+                "lowStockProducts", inventoryService.getLowStockInventory(10).stream()
+                        .map(inv -> Map.of(
+                                "id", inv.getProductId(),
+                                "name", inv.getProductName(),
+                                "stockQuantity", inv.getQuantity(),
+                                "warehouseName", inv.getWarehouseName()
+                        ))
                         .collect(Collectors.toList())
         ));
     }
@@ -84,7 +93,7 @@ public class ApiAdminController {
                     m.put("productCode", p.getProductCode());
                     m.put("price", p.getPrice());
                     m.put("salePrice", p.getSalePrice());
-                    m.put("stockQuantity", p.getStockQuantity());
+                    m.put("stockQuantity", inventoryService.getAvailableQuantity(p));
                     m.put("active", p.isActive());
                     m.put("featured", p.isFeatured());
                     m.put("imageUrl", p.getImageUrl());
@@ -111,7 +120,7 @@ public class ApiAdminController {
                     m.put("contraindications", p.getContraindications());
                     m.put("price", p.getPrice());
                     m.put("salePrice", p.getSalePrice());
-                    m.put("stockQuantity", p.getStockQuantity());
+                    m.put("stockQuantity", inventoryService.getAvailableQuantity(p));
                     m.put("manufacturer", p.getManufacturer());
                     m.put("country", p.getCountry());
                     m.put("dosageForm", p.getDosageForm());
@@ -122,6 +131,7 @@ public class ApiAdminController {
                     m.put("prescriptionRequired", p.isPrescriptionRequired());
                     m.put("active", p.isActive());
                     m.put("featured", p.isFeatured());
+                    m.put("inventoryDetails", inventoryService.getInventoryByProduct(p.getId()));
                     appendProductCategoryInfo(m, p);
                     return ResponseEntity.ok((Object) m);
                 })
@@ -242,7 +252,6 @@ public class ApiAdminController {
             Product existing = productRepository.findById(id)
                     .orElseThrow(() -> new IllegalArgumentException("Sản phẩm không tồn tại"));
 
-            // Update fields if provided
             if (name != null) existing.setName(name);
             if (productCode != null) existing.setProductCode(productCode);
             if (description != null) existing.setDescription(description);
@@ -251,7 +260,6 @@ public class ApiAdminController {
             if (contraindications != null) existing.setContraindications(contraindications);
             if (price != null) existing.setPrice(price);
             if (salePrice != null) existing.setSalePrice(salePrice);
-            if (stockQuantity != null) existing.setStockQuantity(stockQuantity);
             if (manufacturer != null) existing.setManufacturer(manufacturer);
             if (country != null) existing.setCountry(country);
             if (dosageForm != null) existing.setDosageForm(dosageForm);
@@ -260,7 +268,6 @@ public class ApiAdminController {
             if (active != null) existing.setActive(active);
             if (featured != null) existing.setFeatured(featured);
 
-            // Handle image upload - delete old image if new one provided
             if (imageFile != null && !imageFile.isEmpty()) {
                 if (!fileUploadService.isValidImageFile(imageFile)) {
                     throw new IllegalArgumentException("File phải là JPG, PNG, WEBP, max 5MB");
@@ -268,19 +275,30 @@ public class ApiAdminController {
                 String oldImage = existing.getImageUrl();
                 String newImagePath = fileUploadService.saveFile(imageFile);
                 existing.setImageUrl(newImagePath);
-                // Delete old image after successful upload
                 if (oldImage != null && !oldImage.isEmpty()) {
                     fileUploadService.deleteFile(oldImage);
                 }
             }
 
-            // Update categories if provided
             resolveAndSetCategories(existing, categoryId, mainCategoryId, subCategoryId);
 
-            // Save using service
             Product updated = productService.updateProduct(id, existing);
-            ProductDTO dto = productService.toDTO(updated);
 
+            // Adjust stock via inventory system if stockQuantity param is provided
+            if (stockQuantity != null) {
+                int currentInventoryStock = inventoryService.getAvailableQuantity(updated);
+                int delta = stockQuantity - currentInventoryStock;
+                if (delta != 0) {
+                    Warehouse warehouse = inventoryService.getDefaultWarehouse();
+                    if (delta > 0) {
+                        inventoryService.importStock(updated, warehouse, delta, null, "Điều chỉnh từ admin");
+                    } else {
+                        inventoryService.exportStock(updated, warehouse, Math.abs(delta), null, "Điều chỉnh từ admin");
+                    }
+                }
+            }
+
+            ProductDTO dto = productService.toDTO(updated);
             return ResponseEntity.ok(dto);
         } catch (IllegalArgumentException e) {
             throw e;

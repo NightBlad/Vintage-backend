@@ -4,6 +4,7 @@ import com.example.vintage.entity.Category;
 import com.example.vintage.entity.Product;
 import com.example.vintage.repository.CategoryRepository;
 import com.example.vintage.repository.ProductRepository;
+import com.example.vintage.service.InventoryService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -19,10 +20,14 @@ public class ApiProductController {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+    private final InventoryService inventoryService;
 
-    public ApiProductController(ProductRepository productRepository, CategoryRepository categoryRepository) {
+    public ApiProductController(ProductRepository productRepository,
+                                CategoryRepository categoryRepository,
+                                InventoryService inventoryService) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
+        this.inventoryService = inventoryService;
     }
 
     /**
@@ -153,7 +158,7 @@ public class ApiProductController {
         map.put("productCode", p.getProductCode());
         map.put("price", p.getPrice());
         map.put("salePrice", p.getSalePrice());
-        map.put("stockQuantity", p.getStockQuantity());
+        map.put("stockQuantity", inventoryService.getAvailableQuantity(p));
         map.put("imageUrl", p.getImageUrl());
         map.put("featured", p.isFeatured());
         map.put("prescriptionRequired", p.isPrescriptionRequired());

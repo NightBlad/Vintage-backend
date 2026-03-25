@@ -3,11 +3,8 @@ package com.example.vintage.dto;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
-/**
- * Data Transfer Object for Product
- * Used for API requests and responses
- */
 public class ProductDTO {
     
     private Long id;
@@ -38,6 +35,10 @@ public class ProductDTO {
     private String mainCategoryName;
     private Long subCategoryId;
     private String subCategoryName;
+
+    // Inventory information
+    private Integer totalInventoryStock;
+    private List<InventoryDTO> inventoryDetails;
 
     // Constructors
     public ProductDTO() {}
@@ -131,6 +132,12 @@ public class ProductDTO {
 
     public String getSubCategoryName() { return subCategoryName; }
     public void setSubCategoryName(String subCategoryName) { this.subCategoryName = subCategoryName; }
+
+    public Integer getTotalInventoryStock() { return totalInventoryStock; }
+    public void setTotalInventoryStock(Integer totalInventoryStock) { this.totalInventoryStock = totalInventoryStock; }
+
+    public List<InventoryDTO> getInventoryDetails() { return inventoryDetails; }
+    public void setInventoryDetails(List<InventoryDTO> inventoryDetails) { this.inventoryDetails = inventoryDetails; }
 
     // Helper methods
     public BigDecimal getCurrentPrice() {

@@ -83,6 +83,9 @@ public class Product {
     
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL)
     private Set<OrderItem> orderItems = new HashSet<>();
+
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<Inventory> inventories = new HashSet<>();
     
     // Constructors
     public Product() {}
@@ -186,6 +189,9 @@ public class Product {
     
     public Set<OrderItem> getOrderItems() { return orderItems; }
     public void setOrderItems(Set<OrderItem> orderItems) { this.orderItems = orderItems; }
+
+    public Set<Inventory> getInventories() { return inventories; }
+    public void setInventories(Set<Inventory> inventories) { this.inventories = inventories; }
     
     // Helper methods
     public BigDecimal getCurrentPrice() {
