@@ -7,7 +7,6 @@ pipeline {
         GIT_REPO = 'https://github.com/DaoTienDat2304/Vintage'
         VERSION = "v0.${BUILD_NUMBER}"
         SONAR_PROJECT_KEY = 'vintage123456'
-        PERF_ENV = 'dev'
     }
 
     stages {
@@ -26,16 +25,6 @@ pipeline {
                         bat "${mvn}/bin/mvn clean verify -DskipTests=true sonar:sonar -Dsonar.projectKey=${SONAR_PROJECT_KEY} -Dsonar.projectName=vintage"
                     }
                 }
-            }
-        }
-
-        stage('Performance Test') {
-            steps {
-                script {
-                    def mvn = tool 'Maven'
-                    bat "${mvn}/bin/mvn -Pperf verify -Denv=%PERF_ENV% -DskipTests"
-                }
-                archiveArtifacts artifacts: 'target/jmeter/**/*', onlyIfSuccessful: true
             }
         }
 
