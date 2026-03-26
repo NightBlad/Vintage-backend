@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -35,4 +36,18 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     @Query("SELECT COUNT(o) FROM Order o WHERE o.status = ?1")
     Long countByStatus(OrderStatus status);
+
+    @Query("SELECT o FROM Order o WHERE " +
+            "(LOWER(o.orderNumber) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(o.customerName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(o.customerPhone) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+            "ORDER BY o.orderDate DESC")
+    Page<Order> search(@Param("keyword") String keyword, Pageable pageable);
+
+    @Query("SELECT o FROM Order o WHERE o.status = :status AND " +
+            "(LOWER(o.orderNumber) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(o.customerName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(o.customerPhone) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+            "ORDER BY o.orderDate DESC")
+    Page<Order> searchByStatus(@Param("status") OrderStatus status, @Param("keyword") String keyword, Pageable pageable);
 }

@@ -71,10 +71,10 @@
           <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
           <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
             <boolProp name="LoopController.continue_forever">false</boolProp>
-            <stringProp name="LoopController.loops">${__P(loopCount,1)}</stringProp>
+            <stringProp name="LoopController.loops">${__P(loopCount,5)}</stringProp>
           </elementProp>
-          <stringProp name="ThreadGroup.num_threads">${__P(threads,2)}</stringProp>
-          <stringProp name="ThreadGroup.ramp_time">${__P(rampUpSeconds,5)}</stringProp>
+          <stringProp name="ThreadGroup.num_threads">${__P(threads,20)}</stringProp>
+          <stringProp name="ThreadGroup.ramp_time">${__P(rampUpSeconds,30)}</stringProp>
           <longProp name="ThreadGroup.start_time">0</longProp>
           <longProp name="ThreadGroup.end_time">0</longProp>
           <boolProp name="ThreadGroup.scheduler">false</boolProp>
@@ -83,8 +83,8 @@
         </ThreadGroup>
         <hashTree>
           <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="Think Time" enabled="true">
-            <stringProp name="ConstantTimer.delay">${__P(thinkTimeMs,500)}</stringProp>
-            <stringProp name="RandomTimer.range">200</stringProp>
+            <stringProp name="ConstantTimer.delay">${__P(thinkTimeMs,300)}</stringProp>
+            <stringProp name="RandomTimer.range">0</stringProp>
           </UniformRandomTimer>
           <hashTree/>
           <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Login" enabled="true">
@@ -115,6 +115,19 @@
             <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
           </HTTPSamplerProxy>
           <hashTree/>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Current User" enabled="true">
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+            <stringProp name="HTTPSampler.path">/api/auth/me</stringProp>
+            <stringProp name="HTTPSampler.method">GET</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          </HTTPSamplerProxy>
+          <hashTree/>
           <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="List Products" enabled="true">
             <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
               <collectionProp name="Arguments.arguments"/>
@@ -127,12 +140,20 @@
             <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
             <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
           </HTTPSamplerProxy>
-          <hashTree/>
+          <hashTree>
+            <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="Extract productId" enabled="true">
+              <stringProp name="JSONPostProcessor.referenceNames">productId</stringProp>
+              <stringProp name="JSONPostProcessor.jsonPathExprs">$.content[0].id</stringProp>
+              <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+              <stringProp name="JSONPostProcessor.defaultValues">1</stringProp>
+              <boolProp name="JSONPostProcessor.compute_concat">false</boolProp>
+            </JSONPostProcessor>
+          </hashTree>
           <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Search" enabled="true">
             <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
               <collectionProp name="Arguments.arguments"/>
             </elementProp>
-            <stringProp name="HTTPSampler.path">/api/search?keyword=${keyword}&amp;page=0&amp;size=12</stringProp>
+            <stringProp name="HTTPSampler.path">/api/search?keyword=omega&amp;page=0&amp;size=12</stringProp>
             <stringProp name="HTTPSampler.method">GET</stringProp>
             <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
             <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
@@ -200,7 +221,7 @@
                 </elementProp>
               </collectionProp>
             </elementProp>
-            <stringProp name="HTTPSampler.path">/api/cart/place-order</stringProp>
+            <stringProp name="HTTPSampler.path">/api/orders/checkout</stringProp>
             <stringProp name="HTTPSampler.method">POST</stringProp>
             <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
             <boolProp name="HTTPSampler.auto_redirects">false</boolProp>

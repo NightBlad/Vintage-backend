@@ -405,9 +405,12 @@ public class ApiAdminController {
     @GetMapping("/products")
     public ResponseEntity<?> listProducts(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String q) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<Product> products = productRepository.findAll(pageable);
+        Page<Product> products = (q != null && !q.isBlank())
+                ? productRepository.searchAllForAdmin(q.trim(), pageable)
+                : productRepository.findAll(pageable);
         return ResponseEntity.ok(Map.of(
                 "content", products.getContent().stream().map(p -> {
                     Map<String, Object> m = new java.util.HashMap<>();
@@ -846,14 +849,19 @@ public class ApiAdminController {
     public ResponseEntity<?> listOrders(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String status) {
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String q) {
         Pageable pageable = PageRequest.of(page, size);
         Page<Order> orders;
         if (status != null && !status.isBlank()) {
             OrderStatus orderStatus = parseOrderStatus(status);
-            orders = orderRepository.findByStatusOrderByOrderDateDesc(orderStatus, pageable);
+            orders = (q != null && !q.isBlank())
+                    ? orderRepository.searchByStatus(orderStatus, q.trim(), pageable)
+                    : orderRepository.findByStatusOrderByOrderDateDesc(orderStatus, pageable);
         } else {
-            orders = orderRepository.findAllOrderByOrderDateDesc(pageable);
+            orders = (q != null && !q.isBlank())
+                    ? orderRepository.search(q.trim(), pageable)
+                    : orderRepository.findAllOrderByOrderDateDesc(pageable);
         }
         return ResponseEntity.ok(Map.of(
                 "content", orders.getContent().stream().map(o -> {
@@ -1015,9 +1023,12 @@ public class ApiAdminController {
     @GetMapping("/users")
     public ResponseEntity<?> listUsers(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String q) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<User> users = userRepository.findAll(pageable);
+        Page<User> users = (q != null && !q.isBlank())
+                ? userRepository.search(q.trim(), pageable)
+                : userRepository.findAll(pageable);
         return ResponseEntity.ok(Map.of(
                 "content", users.getContent().stream().map(u -> {
                     Map<String, Object> m = new java.util.HashMap<>();
