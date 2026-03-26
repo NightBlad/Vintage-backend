@@ -31,6 +31,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @RestController
 @RequestMapping({"/api/admin", "/api/v1/admin"})
@@ -400,8 +401,41 @@ public class ApiAdminController {
         return payload;
     }
 
-    // ===== PRODUCT MANAGEMENT =====
+    // Helper to append category information into product payload maps
+    private void appendProductCategoryInfo(Map<String, Object> payload, Product product) {
+        if (product == null) {
+            return;
+        }
 
+        // Legacy single category (if still used)
+        if (product.getCategory() != null) {
+            payload.put("categoryId", product.getCategory().getId());
+            payload.put("categoryName", product.getCategory().getName());
+        } else {
+            payload.put("categoryId", null);
+            payload.put("categoryName", null);
+        }
+
+        // Main category
+        if (product.getMainCategory() != null) {
+            payload.put("mainCategoryId", product.getMainCategory().getId());
+            payload.put("mainCategoryName", product.getMainCategory().getName());
+        } else {
+            payload.put("mainCategoryId", null);
+            payload.put("mainCategoryName", null);
+        }
+
+        // Sub category
+        if (product.getSubCategory() != null) {
+            payload.put("subCategoryId", product.getSubCategory().getId());
+            payload.put("subCategoryName", product.getSubCategory().getName());
+        } else {
+            payload.put("subCategoryId", null);
+            payload.put("subCategoryName", null);
+        }
+    }
+
+    // ===== PRODUCT MANAGEMENT =====
     @GetMapping("/products")
     public ResponseEntity<?> listProducts(
             @RequestParam(defaultValue = "0") int page,
@@ -689,12 +723,85 @@ public class ApiAdminController {
 
     @GetMapping("/categories")
     public ResponseEntity<?> listCategories() {
-        List<Category> mainCategories = categoryRepository.findAll().stream()
+        // Lấy toàn bộ category và product một lần
+        List<Category> allCategories = categoryRepository.findAll();
+        List<Product> allProducts = productRepository.findAll();
+
+        // Đếm sản phẩm theo mainCategory và subCategory sao cho mỗi sản phẩm
+        // chỉ được tính 1 lần cho danh mục chính tương ứng
+        Map<Long, Integer> mainCounts = new HashMap<>();
+        Map<Long, Integer> subCounts = new HashMap<>();
+        for (Product p : allProducts) {
+            Category main = p.getMainCategory();
+            Category sub = p.getSubCategory();
+
+            if (sub != null) {
+                // Đếm cho danh mục phụ
+                subCounts.merge(sub.getId(), 1, Integer::sum);
+
+                // Đếm cho danh mục chính là parent của sub
+                Category parent = sub.getParent();
+                if (parent != null) {
+                    mainCounts.merge(parent.getId(), 1, Integer::sum);
+                }
+            } else if (main != null) {
+                // Sản phẩm gắn trực tiếp vào danh mục chính (không có sub)
+                mainCounts.merge(main.getId(), 1, Integer::sum);
+            }
+        }
+
+        // Chỉ lấy danh mục chính làm gốc
+        List<Category> mainCategories = allCategories.stream()
                 .filter(c -> c.getParent() == null)
                 .sorted(Comparator.comparing((Category c) -> c.getDisplayOrder() != null ? c.getDisplayOrder() : 0)
                         .thenComparing(Category::getName))
                 .collect(Collectors.toList());
-        return ResponseEntity.ok(mainCategories.stream().map(c -> toCategoryAdminSummary(c, true)).collect(Collectors.toList()));
+
+        List<Map<String, Object>> payload = mainCategories.stream()
+                .map(c -> toCategoryAdminSummaryWithCounts(c, allCategories, mainCounts, subCounts))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(payload);
+    }
+
+    private Map<String, Object> toCategoryAdminSummaryWithCounts(
+            Category category,
+            List<Category> allCategories,
+            Map<Long, Integer> mainCounts,
+            Map<Long, Integer> subCounts) {
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("id", category.getId());
+        result.put("name", category.getName());
+        result.put("description", category.getDescription());
+        result.put("active", category.isActive());
+        result.put("displayOrder", category.getDisplayOrder());
+        result.put("parentId", category.getParent() != null ? category.getParent().getId() : null);
+        result.put("isMainCategory", category.getParent() == null);
+
+        if (category.getParent() == null) {
+            // Danh mục chính: đã được tính trực tiếp trong mainCounts (bao gồm cả sản phẩm gắn qua sub)
+            result.put("productCount", mainCounts.getOrDefault(category.getId(), 0));
+        } else {
+            // Danh mục phụ: số SP = SP gắn subCategory này
+            result.put("productCount", subCounts.getOrDefault(category.getId(), 0));
+        }
+
+        // Đính kèm subCategories cho main
+        if (category.getParent() == null) {
+            List<Category> subCategories = allCategories.stream()
+                    .filter(c -> c.getParent() != null && c.getParent().getId().equals(category.getId()))
+                    .sorted(Comparator.comparing((Category c) -> c.getDisplayOrder() != null ? c.getDisplayOrder() : 0)
+                            .thenComparing(Category::getName))
+                    .collect(Collectors.toList());
+
+            List<Map<String, Object>> subPayload = subCategories.stream()
+                    .map(sub -> toCategoryAdminSummaryWithCounts(sub, allCategories, mainCounts, subCounts))
+                    .collect(Collectors.toList());
+            result.put("subCategories", subPayload);
+        }
+
+        return result;
     }
 
     @PostMapping("/categories")
@@ -790,57 +897,6 @@ public class ApiAdminController {
 
         categoryRepository.save(category);
         return ResponseEntity.ok(Map.of("message", "Xóa danh mục thành công"));
-    }
-
-    private void appendProductCategoryInfo(Map<String, Object> map, Product product) {
-        Category mainCategory = product.getMainCategory();
-        Category subCategory = product.getSubCategory();
-        Category category = product.getCategory();
-
-        // Fallback to legacy mapping for old records
-        if (mainCategory == null && subCategory == null && category != null) {
-            mainCategory = category.getParent() != null ? category.getParent() : category;
-            subCategory = category.getParent() != null ? category : null;
-        }
-
-        if (mainCategory == null && subCategory == null && category == null) {
-            map.put("categoryId", null);
-            map.put("categoryName", null);
-            map.put("mainCategoryId", null);
-            map.put("mainCategoryName", null);
-            map.put("subCategoryId", null);
-            map.put("subCategoryName", null);
-            return;
-        }
-
-        Category displayCategory = subCategory != null ? subCategory : mainCategory;
-        map.put("categoryId", displayCategory != null ? displayCategory.getId() : null);
-        map.put("categoryName", displayCategory != null ? displayCategory.getName() : null);
-        map.put("mainCategoryId", mainCategory != null ? mainCategory.getId() : null);
-        map.put("mainCategoryName", mainCategory != null ? mainCategory.getName() : null);
-        map.put("subCategoryId", subCategory != null ? subCategory.getId() : null);
-        map.put("subCategoryName", subCategory != null ? subCategory.getName() : null);
-    }
-
-    private Map<String, Object> toCategoryAdminSummary(Category category, boolean includeChildren) {
-        Map<String, Object> result = new java.util.HashMap<>();
-        result.put("id", category.getId());
-        result.put("name", category.getName());
-        result.put("description", category.getDescription());
-        result.put("active", category.isActive());
-        result.put("displayOrder", category.getDisplayOrder());
-        result.put("productCount", category.getProducts() != null ? category.getProducts().size() : 0);
-        result.put("parentId", category.getParent() != null ? category.getParent().getId() : null);
-        result.put("isMainCategory", category.getParent() == null);
-
-        if (includeChildren) {
-            List<Category> subCategories = category.getChildren().stream()
-                    .sorted(Comparator.comparing((Category c) -> c.getDisplayOrder() != null ? c.getDisplayOrder() : 0)
-                            .thenComparing(Category::getName))
-                    .collect(Collectors.toList());
-            result.put("subCategories", subCategories.stream().map(sub -> toCategoryAdminSummary(sub, false)).collect(Collectors.toList()));
-        }
-        return result;
     }
 
     // ===== ORDER MANAGEMENT =====
