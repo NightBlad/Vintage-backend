@@ -51,8 +51,9 @@ public class DataInitializer implements CommandLineRunner {
     private void initializeRoles() {
         if (roleRepository.count() == 0) {
             roleRepository.save(new Role(RoleName.ROLE_ADMIN));
+            roleRepository.save(new Role(RoleName.ROLE_STAFF));
             roleRepository.save(new Role(RoleName.ROLE_USER));
-            System.out.println("Đã khởi tạo các role: ADMIN và USER");
+            System.out.println("Đã khởi tạo các role: ADMIN, STAFF và USER");
         }
     }
 
@@ -90,8 +91,25 @@ public class DataInitializer implements CommandLineRunner {
 
             userRepository.save(user);
 
+            // Tạo staff mặc định
+            User staff = new User();
+            staff.setUsername("staff");
+            staff.setEmail("staff@vintage-pharmacy.com");
+            staff.setPassword(passwordEncoder.encode("staff123"));
+            staff.setFullName("Nhân viên mẫu");
+            staff.setPhone("0911222333");
+            staff.setAddress("789 Đường XYZ, TP.HCM");
+
+            Role staffRole = roleRepository.findByName(RoleName.ROLE_STAFF).orElse(null);
+            Set<Role> staffRoles = new HashSet<>();
+            staffRoles.add(staffRole);
+            staff.setRoles(staffRoles);
+
+            userRepository.save(staff);
+
             System.out.println("Đã khởi tạo tài khoản:");
             System.out.println("- Admin: admin/admin123");
+            System.out.println("- Staff: staff/staff123");
             System.out.println("- User: user/user123");
         }
     }

@@ -86,16 +86,18 @@ public class SecurityConfig {
                     "/uploads/**",
                     "/h2-console/**"
                 ).permitAll()
-                // Admin API endpoints
-                .requestMatchers("/api/admin/**", "/api/v1/admin/**", "/admin/**").hasRole("ADMIN")
-                // Inventory management endpoints (admin only)
-                .requestMatchers("/api/inventory/**", "/api/v1/inventory/**").hasRole("ADMIN")
+                // User management endpoints: ADMIN only
+                .requestMatchers("/api/admin/users/**", "/api/v1/admin/users/**", "/admin/users/**").hasRole("ADMIN")
+                // Admin/Staff endpoints
+                .requestMatchers("/api/admin/**", "/api/v1/admin/**", "/admin/**").hasAnyRole("ADMIN", "STAFF")
+                // Inventory management endpoints (admin & staff)
+                .requestMatchers("/api/inventory/**", "/api/v1/inventory/**").hasAnyRole("ADMIN", "STAFF")
                 // Authenticated user endpoints
                 .requestMatchers(
                     "/api/account/**", "/api/v1/account/**",
                     "/api/cart/**", "/api/v1/cart/**",
                     "/api/orders/**", "/api/v1/orders/**"
-                ).hasAnyRole("USER", "ADMIN")
+                ).hasAnyRole("USER", "ADMIN", "STAFF")
                 .anyRequest().authenticated()
             )
             .exceptionHandling(ex -> ex

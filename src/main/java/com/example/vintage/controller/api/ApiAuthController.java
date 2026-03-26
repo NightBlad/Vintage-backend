@@ -5,6 +5,7 @@ import com.example.vintage.entity.RoleName;
 import com.example.vintage.entity.User;
 import com.example.vintage.repository.RoleRepository;
 import com.example.vintage.repository.UserRepository;
+import com.example.vintage.service.CartService;
 import com.example.vintage.service.SessionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -34,17 +35,20 @@ public class ApiAuthController {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final SessionService sessionService;
+    private final CartService cartService;
 
     public ApiAuthController(UserRepository userRepository,
                              RoleRepository roleRepository,
                              PasswordEncoder passwordEncoder,
-                             AuthenticationManager authenticationManager,
-                             SessionService sessionService) {
+                              AuthenticationManager authenticationManager,
+                              SessionService sessionService,
+                              CartService cartService) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.sessionService = sessionService;
+        this.cartService = cartService;
     }
 
     /**
@@ -78,6 +82,7 @@ public class ApiAuthController {
             session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
 
             User user = sessionService.getCurrentUser();
+            cartService.clearCart(); // reset cart when switching account within same browser session
             return ResponseEntity.ok(buildUserResponse(user));
 
         } catch (BadCredentialsException e) {
@@ -99,6 +104,7 @@ public class ApiAuthController {
             session.invalidate();
         }
         SecurityContextHolder.clearContext();
+        cartService.clearCart();
         return ResponseEntity.ok(Map.of("message", "Đăng xuất thành công"));
     }
 

@@ -20,6 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.security.Principal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -28,7 +31,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import java.security.Principal;
 
 @RestController
 @RequestMapping({"/api/admin", "/api/v1/admin", "/admin"})
@@ -85,8 +87,11 @@ public class ApiAdminController {
         response.put("totalOrders", orderRepository.count());
         response.put("lowStockCount", lowStockProducts.size());
         response.put("lowStockProducts", lowStockProducts.stream().map(this::toDashboardProduct).collect(Collectors.toList()));
+        response.put("inventoryValue", calculateInventoryValue());
         response.put("recentOrders", recentOrderPayload);
         response.put("salesSummary", buildSalesSummary(recentOrders));
+        response.put("timeSeries", buildTimeSeriesCharts());
+        response.put("revenueSummary", buildRevenueSummary());
 
         return ResponseEntity.ok(response);
     }
@@ -198,7 +203,7 @@ public class ApiAdminController {
         } else {
             insights.add(Map.of(
                     "tone", "success",
-                    "message", "Ti le huy don dang o muc on dinh trong nhom don gan day."
+                    "message", "Tỉ lệ hủy đơn đang ở mức ổn định trong nhóm đơn gần đây."
             ));
         }
 
@@ -213,6 +218,24 @@ public class ApiAdminController {
         return insights;
     }
 
+    private Map<String, Object> buildRevenueSummary() {
+        LocalDate today = LocalDate.now();
+        LocalDateTime startToday = today.atStartOfDay();
+        LocalDateTime startWeek = today.with(java.time.DayOfWeek.MONDAY).atStartOfDay();
+        LocalDateTime startMonth = today.withDayOfMonth(1).atStartOfDay();
+        LocalDateTime end = today.plusDays(1).atStartOfDay();
+
+        BigDecimal revenueToday = sumRevenue(startToday, end);
+        BigDecimal revenueWeek = sumRevenue(startWeek, end);
+        BigDecimal revenueMonth = sumRevenue(startMonth, end);
+
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("today", revenueToday);
+        summary.put("thisWeek", revenueWeek);
+        summary.put("thisMonth", revenueMonth);
+        return summary;
+    }
+
     private String normalizeDashboardStatus(OrderStatus status) {
         if (status == null) {
             return "PENDING";
@@ -221,6 +244,114 @@ public class ApiAdminController {
             return "SHIPPING";
         }
         return status.name();
+    }
+
+    private Map<String, Object> buildTimeSeriesCharts() {
+        LocalDate today = LocalDate.now();
+
+        List<Map<String, Object>> daily = buildDailySeries(today.minusDays(6), today);
+        List<Map<String, Object>> weekly = buildWeeklySeries(today.minusWeeks(7), today);
+        List<Map<String, Object>> monthly = buildMonthlySeries(today.minusMonths(5), today);
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("daily", daily);
+        payload.put("weekly", weekly);
+        payload.put("monthly", monthly);
+        return payload;
+    }
+
+    private List<Map<String, Object>> buildDailySeries(LocalDate start, LocalDate end) {
+        List<Order> orders = safeFindOrders(start.atStartOfDay(), end.plusDays(1).atStartOfDay());
+        Map<LocalDate, List<Order>> grouped = orders.stream()
+                .collect(Collectors.groupingBy(o -> o.getOrderDate().toLocalDate()));
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+        LocalDate cursor = start;
+        while (!cursor.isAfter(end)) {
+            List<Order> bucket = grouped.getOrDefault(cursor, List.of());
+            rows.add(timeSeriesRow(cursor.toString(), bucket));
+            cursor = cursor.plusDays(1);
+        }
+        return rows;
+    }
+
+    private List<Map<String, Object>> buildWeeklySeries(LocalDate start, LocalDate end) {
+        List<Order> orders = safeFindOrders(start.with(java.time.DayOfWeek.MONDAY).atStartOfDay(), end.plusDays(1).atStartOfDay());
+        Map<String, List<Order>> grouped = orders.stream().collect(Collectors.groupingBy(o -> {
+            LocalDate d = o.getOrderDate().toLocalDate();
+            java.time.temporal.WeekFields wf = java.time.temporal.WeekFields.ISO;
+            int week = d.get(wf.weekOfWeekBasedYear());
+            int year = d.get(wf.weekBasedYear());
+            return year + "-W" + String.format("%02d", week);
+        }));
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+        LocalDate cursor = start.with(java.time.DayOfWeek.MONDAY);
+        java.time.temporal.WeekFields wf = java.time.temporal.WeekFields.ISO;
+        while (!cursor.isAfter(end)) {
+            int week = cursor.get(wf.weekOfWeekBasedYear());
+            int year = cursor.get(wf.weekBasedYear());
+            String key = year + "-W" + String.format("%02d", week);
+            rows.add(timeSeriesRow(key, grouped.getOrDefault(key, List.of())));
+            cursor = cursor.plusWeeks(1);
+        }
+        return rows;
+    }
+
+    private List<Map<String, Object>> buildMonthlySeries(LocalDate start, LocalDate end) {
+        List<Order> orders = safeFindOrders(start.withDayOfMonth(1).atStartOfDay(), end.plusMonths(1).withDayOfMonth(1).atStartOfDay());
+        Map<String, List<Order>> grouped = orders.stream().collect(Collectors.groupingBy(o -> {
+            LocalDate d = o.getOrderDate().toLocalDate();
+            return d.getYear() + "-" + String.format("%02d", d.getMonthValue());
+        }));
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+        LocalDate cursor = start.withDayOfMonth(1);
+        while (!cursor.isAfter(end)) {
+            String key = cursor.getYear() + "-" + String.format("%02d", cursor.getMonthValue());
+            rows.add(timeSeriesRow(key, grouped.getOrDefault(key, List.of())));
+            cursor = cursor.plusMonths(1);
+        }
+        return rows;
+    }
+
+    private List<Order> safeFindOrders(LocalDateTime start, LocalDateTime end) {
+        List<Order> orders = orderRepository.findOrdersBetweenDates(start, end);
+        return orders != null ? orders : List.of();
+    }
+
+    private BigDecimal sumRevenue(LocalDateTime start, LocalDateTime end) {
+        return safeFindOrders(start, end).stream()
+                .map(o -> o.getTotalAmount() != null ? o.getTotalAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private Map<String, Object> timeSeriesRow(String label, List<Order> orders) {
+        BigDecimal revenue = orders.stream()
+                .map(o -> o.getTotalAmount() != null ? o.getTotalAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        int count = orders.size();
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("label", label);
+        row.put("orderCount", count);
+        row.put("revenue", revenue);
+        return row;
+    }
+
+    private BigDecimal calculateInventoryValue() {
+        return productRepository.findAll().stream()
+                .map(p -> {
+                    BigDecimal unit = (p.getSalePrice() != null && p.getSalePrice().compareTo(BigDecimal.ZERO) > 0)
+                            ? p.getSalePrice()
+                            : (p.getPrice() != null ? p.getPrice() : BigDecimal.ZERO);
+                    int stock = p.getStockQuantity() != null ? p.getStockQuantity() : 0;
+                    return unit.multiply(BigDecimal.valueOf(stock));
+                })
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private boolean isAdminUser(User user) {
+        return user.getRoles().stream().anyMatch(r -> r.getName() == RoleName.ROLE_ADMIN);
     }
 
     private Map<String, Object> toDashboardProduct(Product product) {
@@ -890,6 +1021,9 @@ public class ApiAdminController {
     public ResponseEntity<?> toggleUserStatus(@PathVariable Long id) {
         User user = userRepository.findById(id).orElse(null);
         if (user == null) return ResponseEntity.notFound().build();
+        if (isAdminUser(user)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Không thể khóa/kích hoạt tài khoản Admin"));
+        }
         user.setEnabled(!user.isEnabled());
         userRepository.save(user);
         return ResponseEntity.ok(Map.of(
@@ -917,6 +1051,10 @@ public class ApiAdminController {
     public ResponseEntity<?> toggleUserLock(@PathVariable Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+
+        if (isAdminUser(user)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Không thể khóa tài khoản Admin"));
+        }
 
         // Thực hiện đảo ngược trạng thái khóa
         user.setAccountLocked(!user.isAccountLocked());
@@ -1004,6 +1142,64 @@ public class ApiAdminController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", "Tên quyền không hợp lệ: " + roleNameStr));
         }
+    }
+
+    @PutMapping("/users/{id}")
+    @Transactional
+    public ResponseEntity<?> updateUser(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+
+        if (isAdminUser(user)) {
+            // Admin accounts cannot be disabled or locked
+            body.put("enabled", true);
+            body.put("accountLocked", false);
+        }
+
+        String fullName = (String) body.getOrDefault("fullName", user.getFullName());
+        String email = (String) body.getOrDefault("email", user.getEmail());
+        String phone = (String) body.getOrDefault("phone", user.getPhone());
+        String address = (String) body.getOrDefault("address", user.getAddress());
+        Boolean enabled = body.containsKey("enabled") ? Boolean.valueOf(body.get("enabled").toString()) : user.isEnabled();
+        Boolean locked = body.containsKey("accountLocked") ? Boolean.valueOf(body.get("accountLocked").toString()) : user.isAccountLocked();
+
+        if (fullName == null || fullName.trim().length() < 2) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Họ tên không hợp lệ"));
+        }
+        if (email == null || !email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email không hợp lệ"));
+        }
+
+        userRepository.findByEmail(email).ifPresent(existing -> {
+            if (!existing.getId().equals(user.getId())) {
+                throw new RuntimeException("Email đã được sử dụng bởi tài khoản khác");
+            }
+        });
+
+        user.setFullName(fullName.trim());
+        user.setEmail(email.trim());
+        user.setPhone(phone);
+        user.setAddress(address);
+        user.setEnabled(enabled != null ? enabled : user.isEnabled());
+        user.setAccountLocked(locked != null ? locked : user.isAccountLocked());
+        if (!user.isAccountLocked()) {
+            user.setFailedAttempts(0);
+        }
+
+        userRepository.save(user);
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("id", user.getId());
+        response.put("username", user.getUsername());
+        response.put("email", user.getEmail());
+        response.put("fullName", user.getFullName());
+        response.put("phone", user.getPhone());
+        response.put("address", user.getAddress());
+        response.put("enabled", user.isEnabled());
+        response.put("accountLocked", user.isAccountLocked());
+        response.put("roles", user.getRoles().stream().map(r -> r.getName().name()).toList());
+
+        return ResponseEntity.ok(response);
     }
 
     private MultipartFile resolveMainImage(MultipartFile imageFile, MultipartFile image) {

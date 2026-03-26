@@ -6,6 +6,7 @@ import com.example.vintage.entity.RoleName;
 import com.example.vintage.entity.User;
 import com.example.vintage.repository.RoleRepository;
 import com.example.vintage.repository.UserRepository;
+import com.example.vintage.service.CartService;
 import com.example.vintage.service.SessionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -39,6 +40,7 @@ public class ApiAuthControllerLoginTests {
     private PasswordEncoder passwordEncoder;
     private AuthenticationManager authenticationManager;
     private SessionService sessionService;
+    private CartService cartService;
     private ApiAuthController apiAuthController;
 
     @BeforeEach
@@ -48,7 +50,8 @@ public class ApiAuthControllerLoginTests {
         passwordEncoder = mock(PasswordEncoder.class);
         authenticationManager = mock(AuthenticationManager.class);
         sessionService = mock(SessionService.class);
-        apiAuthController = new ApiAuthController(userRepository, roleRepository, passwordEncoder, authenticationManager, sessionService);
+        cartService = mock(CartService.class);
+        apiAuthController = new ApiAuthController(userRepository, roleRepository, passwordEncoder, authenticationManager, sessionService, cartService);
     }
 
     @Test // Test đăng nhập với tài khoản ROLE_USER -> phải thành công

@@ -6,6 +6,7 @@ import com.example.vintage.entity.RoleName;
 import com.example.vintage.entity.User;
 import com.example.vintage.repository.RoleRepository;
 import com.example.vintage.repository.UserRepository;
+import com.example.vintage.service.CartService;
 import com.example.vintage.service.SessionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,7 @@ public class ApiAuthControllerRegisterTests {
     private PasswordEncoder passwordEncoder;
     private AuthenticationManager authenticationManager;
     private SessionService sessionService;
+    private CartService cartService;
     private ApiAuthController apiAuthController;
 
     @BeforeEach
@@ -37,13 +39,14 @@ public class ApiAuthControllerRegisterTests {
         passwordEncoder = mock(PasswordEncoder.class);
         authenticationManager = mock(AuthenticationManager.class);
         sessionService = mock(SessionService.class);
+        cartService = mock(CartService.class);
 
         // Mock ROLE_USER to avoid RuntimeException("Role USER không tồn tại") in register()
         Role userRole = new Role();
         userRole.setName(RoleName.ROLE_USER);
         when(roleRepository.findByName(RoleName.ROLE_USER)).thenReturn(Optional.of(userRole));
 
-        apiAuthController = new ApiAuthController(userRepository, roleRepository, passwordEncoder, authenticationManager, sessionService);
+        apiAuthController = new ApiAuthController(userRepository, roleRepository, passwordEncoder, authenticationManager, sessionService, cartService);
     }
 
 
