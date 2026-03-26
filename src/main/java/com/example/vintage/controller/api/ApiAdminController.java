@@ -33,7 +33,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping({"/api/admin", "/api/v1/admin", "/admin"})
+@RequestMapping({"/api/admin", "/api/v1/admin"})
 public class ApiAdminController {
 
     private static final int DASHBOARD_LOW_STOCK_THRESHOLD = 10;
@@ -902,6 +902,32 @@ public class ApiAdminController {
             return ResponseEntity.ok(toAdminOrderDetail(updatedOrder));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/orders/{id}/payment-status")
+    public ResponseEntity<?> updatePaymentStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        String statusStr = body != null ? body.get("paymentStatus") : null;
+        if (statusStr == null || statusStr.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "paymentStatus is required"));
+        }
+        try {
+            PaymentStatus paymentStatus = PaymentStatus.valueOf(statusStr.toUpperCase());
+
+            Order order = orderRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
+
+            order.setPaymentStatus(paymentStatus);
+            order.setUpdatedAt(LocalDateTime.now());
+            orderRepository.save(order);
+
+            return ResponseEntity.ok(Map.of(
+                    "message", "Cập nhật trạng thái thanh toán thành công",
+                    "orderId", order.getId(),
+                    "paymentStatus", order.getPaymentStatus().name()
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Giá trị paymentStatus không hợp lệ"));
         }
     }
 
