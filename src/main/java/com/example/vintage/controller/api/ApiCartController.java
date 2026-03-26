@@ -65,10 +65,17 @@ public class ApiCartController {
             items.add(item);
         }
 
+        BigDecimal productTotal = cartService.getTotalAmount();
+        BigDecimal shippingFee = orderService.calculateShippingFee(productTotal);
+        BigDecimal grandTotal = productTotal.add(shippingFee);
+
         return ResponseEntity.ok(Map.of(
                 "items", items,
                 "totalItems", cartService.getTotalItems(),
-                "totalAmount", cartService.getTotalAmount()
+                "totalAmount", productTotal,
+                "shippingFee", shippingFee,
+                "freeShippingThreshold", OrderService.FREE_SHIPPING_THRESHOLD,
+                "grandTotal", grandTotal
         ));
     }
 

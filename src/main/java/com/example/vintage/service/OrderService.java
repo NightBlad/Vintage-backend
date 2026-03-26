@@ -12,10 +12,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.List;
+import java.util.EnumSet;
 
 @Service
 @Transactional
 public class OrderService {
+
+    public static final BigDecimal FREE_SHIPPING_THRESHOLD = BigDecimal.valueOf(500000);
+    public static final BigDecimal DEFAULT_SHIPPING_FEE = BigDecimal.valueOf(30000);
+    private static final EnumSet<OrderStatus> STOCK_DEDUCTED_STATUSES =
+            EnumSet.of(OrderStatus.CONFIRMED, OrderStatus.PROCESSING, OrderStatus.SHIPPED, OrderStatus.DELIVERED);
 
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
@@ -50,6 +56,7 @@ public class OrderService {
         order.setNotes(notes);
         order.setOrderDate(LocalDateTime.now());
         order.setStatus(OrderStatus.PENDING);
+        order.setStockDeducted(false);
 
         // Tạo mã đơn hàng
         order.setOrderNumber(generateOrderNumber());
@@ -124,13 +131,14 @@ public class OrderService {
         return orderRepository.save(order);
     }
 
-    private BigDecimal calculateShippingFee(BigDecimal totalAmount) {
+    public BigDecimal calculateShippingFee(BigDecimal totalAmount) {
+        BigDecimal normalizedAmount = totalAmount == null ? BigDecimal.ZERO : totalAmount;
         // Miễn phí ship cho đơn hàng trên 500,000 VND
-        if (totalAmount.compareTo(BigDecimal.valueOf(500000)) >= 0) {
+        if (normalizedAmount.compareTo(FREE_SHIPPING_THRESHOLD) > 0) {
             return BigDecimal.ZERO;
         }
         // Phí ship cố định 30,000 VND
-        return BigDecimal.valueOf(30000);
+        return DEFAULT_SHIPPING_FEE;
     }
 
     public Order findById(Long id) {
@@ -141,15 +149,20 @@ public class OrderService {
     public void updateOrderStatus(Long orderId, OrderStatus status) {
         Order order = findById(orderId);
         OrderStatus oldStatus = order.getStatus();
-        order.setStatus(status);
-        order.setUpdatedAt(LocalDateTime.now());
-        orderRepository.save(order);
+
+        if (oldStatus == status) {
+            return;
+        }
+
+        validateStatusTransition(oldStatus, status);
 
         // Kho chỉ có 1, dùng kho mặc định
         Warehouse warehouse = inventoryService.getDefaultWarehouse();
 
-        // Khi chuyển sang CONFIRMED: trừ kho
-        if (oldStatus == OrderStatus.PENDING && status == OrderStatus.CONFIRMED) {
+        boolean shouldDeductStock = shouldDeductStock(status, order.isStockDeducted());
+        boolean shouldRestoreStock = shouldRestoreStock(status, order.isStockDeducted());
+
+        if (shouldDeductStock) {
             order.getOrderItems().forEach(item ->
                     inventoryService.exportStock(
                             item.getProduct(),
@@ -159,10 +172,10 @@ public class OrderService {
                             "Xuất kho cho đơn hàng " + order.getOrderNumber()
                     )
             );
+            order.setStockDeducted(true);
         }
 
-        // Khi chuyển sang CANCELED: hoàn kho nếu trước đó đã CONFIRMED
-        if (oldStatus == OrderStatus.CONFIRMED && status == OrderStatus.CANCELLED) {
+        if (shouldRestoreStock) {
             order.getOrderItems().forEach(item ->
                     inventoryService.importStock(
                             item.getProduct(),
@@ -172,6 +185,51 @@ public class OrderService {
                             "Hoàn kho do hủy đơn " + order.getOrderNumber()
                     )
             );
+            order.setStockDeducted(false);
+        }
+
+        order.setStatus(status);
+        order.setUpdatedAt(LocalDateTime.now());
+        orderRepository.save(order);
+    }
+
+    private boolean shouldDeductStock(OrderStatus newStatus, boolean stockDeducted) {
+        return STOCK_DEDUCTED_STATUSES.contains(newStatus) && !stockDeducted;
+    }
+
+    private boolean shouldRestoreStock(OrderStatus newStatus, boolean stockDeducted) {
+        return newStatus == OrderStatus.CANCELLED && stockDeducted;
+    }
+
+    private void validateStatusTransition(OrderStatus oldStatus, OrderStatus newStatus) {
+        switch (oldStatus) {
+            case PENDING:
+                if (newStatus != OrderStatus.CONFIRMED && newStatus != OrderStatus.CANCELLED) {
+                    throw new IllegalArgumentException("Đơn chờ xử lý chỉ có thể chuyển sang CONFIRMED hoặc CANCELLED");
+                }
+                break;
+            case CONFIRMED:
+                if (newStatus != OrderStatus.PROCESSING && newStatus != OrderStatus.SHIPPED
+                        && newStatus != OrderStatus.DELIVERED && newStatus != OrderStatus.CANCELLED) {
+                    throw new IllegalArgumentException("Đơn đã xác nhận chỉ có thể chuyển sang PROCESSING, SHIPPED, DELIVERED hoặc CANCELLED");
+                }
+                break;
+            case PROCESSING:
+                if (newStatus != OrderStatus.SHIPPED && newStatus != OrderStatus.DELIVERED && newStatus != OrderStatus.CANCELLED) {
+                    throw new IllegalArgumentException("Đơn đang xử lý chỉ có thể chuyển sang SHIPPED, DELIVERED hoặc CANCELLED");
+                }
+                break;
+            case SHIPPED:
+                if (newStatus != OrderStatus.DELIVERED && newStatus != OrderStatus.CANCELLED) {
+                    throw new IllegalArgumentException("Đơn đang giao chỉ có thể chuyển sang DELIVERED hoặc CANCELLED");
+                }
+                break;
+            case DELIVERED:
+                throw new IllegalArgumentException("Đơn đã giao thành công không thể đổi trạng thái");
+            case CANCELLED:
+                throw new IllegalArgumentException("Đơn đã hủy không thể đổi trạng thái");
+            default:
+                throw new IllegalArgumentException("Trạng thái đơn hàng không hợp lệ");
         }
     }
 

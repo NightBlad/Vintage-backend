@@ -48,6 +48,9 @@ public class Order {
     
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Column(name = "stock_deducted", nullable = false)
+    private boolean stockDeducted = false;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
@@ -128,6 +131,9 @@ public class Order {
     
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    public boolean isStockDeducted() { return stockDeducted; }
+    public void setStockDeducted(boolean stockDeducted) { this.stockDeducted = stockDeducted; }
     
     public User getUser() { return user; }
     public void setUser(User user) { this.user = user; }

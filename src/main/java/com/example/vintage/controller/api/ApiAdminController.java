@@ -719,7 +719,7 @@ public class ApiAdminController {
         Pageable pageable = PageRequest.of(page, size);
         Page<Order> orders;
         if (status != null && !status.isBlank()) {
-            OrderStatus orderStatus = OrderStatus.valueOf(status.toUpperCase());
+            OrderStatus orderStatus = parseOrderStatus(status);
             orders = orderRepository.findByStatusOrderByOrderDateDesc(orderStatus, pageable);
         } else {
             orders = orderRepository.findAllOrderByOrderDateDesc(pageable);
@@ -729,7 +729,7 @@ public class ApiAdminController {
                     Map<String, Object> m = new java.util.HashMap<>();
                     m.put("id", o.getId());
                     m.put("orderNumber", o.getOrderNumber());
-                    m.put("status", o.getStatus());
+                    m.put("status", toFrontendStatus(o.getStatus()));
                     m.put("totalAmount", o.getTotalAmount());
                     m.put("customerName", o.getCustomerName());
                     m.put("customerPhone", o.getCustomerPhone());
@@ -751,40 +751,7 @@ public class ApiAdminController {
     @GetMapping("/orders/{id}")
     public ResponseEntity<?> getOrder(@PathVariable Long id) {
         return orderRepository.findByIdWithItems(id)
-                .map(o -> {
-                    Map<String, Object> m = new java.util.HashMap<>();
-                    m.put("id", o.getId());
-                    m.put("orderNumber", o.getOrderNumber());
-                    m.put("status", o.getStatus());
-                    m.put("totalAmount", o.getTotalAmount());
-                    m.put("shippingFee", o.getShippingFee());
-                    m.put("customerName", o.getCustomerName());
-                    m.put("customerPhone", o.getCustomerPhone());
-                    m.put("customerEmail", o.getCustomerEmail());
-                    m.put("shippingAddress", o.getShippingAddress());
-                    m.put("notes", o.getNotes());
-                    m.put("paymentMethod", o.getPaymentMethod());
-                    m.put("paymentStatus", o.getPaymentStatus());
-                    m.put("orderDate", o.getOrderDate());
-                    m.put("updatedAt", o.getUpdatedAt());
-                    if (o.getUser() != null) {
-                        m.put("userId", o.getUser().getId());
-                        m.put("username", o.getUser().getUsername());
-                    }
-                    m.put("items", o.getOrderItems().stream().map(item -> {
-                        Map<String, Object> i = new java.util.HashMap<>();
-                        i.put("id", item.getId());
-                        i.put("quantity", item.getQuantity());
-                        i.put("price", item.getPrice());
-                        i.put("totalPrice", item.getTotalPrice());
-                        if (item.getProduct() != null) {
-                            i.put("productId", item.getProduct().getId());
-                            i.put("productName", item.getProduct().getName());
-                        }
-                        return i;
-                    }).collect(Collectors.toList()));
-                    return ResponseEntity.ok((Object) m);
-                })
+                .map(o -> ResponseEntity.ok((Object) toAdminOrderDetail(o)))
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -793,12 +760,82 @@ public class ApiAdminController {
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null) return ResponseEntity.notFound().build();
         try {
-            OrderStatus status = OrderStatus.valueOf(body.get("status").toUpperCase());
+            String requestedStatus = body != null ? body.get("status") : null;
+            if (requestedStatus == null || requestedStatus.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Thiếu trạng thái đơn hàng"));
+            }
+            OrderStatus status = parseOrderStatus(requestedStatus);
             orderService.updateOrderStatus(order.getId(), status);
-            return ResponseEntity.ok(Map.of("message", "Cập nhật trạng thái đơn hàng thành công"));
+            Order updatedOrder = orderRepository.findByIdWithItems(order.getId())
+                    .orElseThrow(() -> new IllegalStateException("Không thể tải lại đơn hàng sau khi cập nhật"));
+            return ResponseEntity.ok(toAdminOrderDetail(updatedOrder));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Trạng thái không hợp lệ"));
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
+    }
+
+    private OrderStatus parseOrderStatus(String rawStatus) {
+        if (rawStatus == null || rawStatus.isBlank()) {
+            throw new IllegalArgumentException("Trạng thái không hợp lệ");
+        }
+
+        String normalized = rawStatus.trim().toUpperCase();
+        if ("SHIPPING".equals(normalized)) {
+            return OrderStatus.SHIPPED;
+        }
+        return OrderStatus.valueOf(normalized);
+    }
+
+    private String toFrontendStatus(OrderStatus status) {
+        if (status == null) {
+            return "PENDING";
+        }
+        return status == OrderStatus.SHIPPED ? "SHIPPING" : status.name();
+    }
+
+    private Map<String, Object> toAdminOrderDetail(Order order) {
+        Map<String, Object> m = new java.util.HashMap<>();
+        m.put("id", order.getId());
+        m.put("orderNumber", order.getOrderNumber());
+        m.put("status", toFrontendStatus(order.getStatus()));
+        m.put("totalAmount", order.getTotalAmount());
+        m.put("shippingFee", order.getShippingFee());
+        m.put("discount", order.getDiscount());
+        m.put("customerName", order.getCustomerName());
+        m.put("customerPhone", order.getCustomerPhone());
+        m.put("customerEmail", order.getCustomerEmail());
+        m.put("shippingAddress", order.getShippingAddress());
+        m.put("notes", order.getNotes());
+        m.put("paymentMethod", order.getPaymentMethod());
+        m.put("paymentStatus", order.getPaymentStatus());
+        m.put("orderDate", order.getOrderDate());
+        m.put("updatedAt", order.getUpdatedAt());
+        if (order.getUser() != null) {
+            m.put("userId", order.getUser().getId());
+            m.put("username", order.getUser().getUsername());
+        }
+
+        List<Map<String, Object>> items = order.getOrderItems().stream().map(item -> {
+            Map<String, Object> i = new java.util.HashMap<>();
+            i.put("id", item.getId());
+            i.put("quantity", item.getQuantity());
+            i.put("price", item.getPrice());
+            i.put("unitPrice", item.getPrice());
+            i.put("totalPrice", item.getTotalPrice());
+            i.put("subtotal", item.getTotalPrice());
+            if (item.getProduct() != null) {
+                i.put("productId", item.getProduct().getId());
+                i.put("productName", item.getProduct().getName());
+                i.put("productCode", item.getProduct().getProductCode());
+                i.put("productImage", item.getProduct().getImageUrl() != null ? "/uploads/" + item.getProduct().getImageUrl() : null);
+            }
+            return i;
+        }).collect(Collectors.toList());
+
+        m.put("orderItems", items);
+        m.put("items", items);
+        m.put("itemCount", items.size());
+        return m;
     }
 
     @PutMapping("/orders/{id}/payment")
