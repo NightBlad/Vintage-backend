@@ -150,6 +150,7 @@
                             <testFilesIncluded>
                                 <jmeterTestFile>${jmeter.testfile}</jmeterTestFile>
                             </testFilesIncluded>
+                            <testFilesDirectory>${project.basedir}/src/test/jmeter</testFilesDirectory>
                             <resultsFileFormat>csv</resultsFileFormat>
                             <resultsDirectory>target/jmeter</resultsDirectory>
                             <generateReports>true</generateReports>

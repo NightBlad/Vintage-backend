@@ -39,6 +39,12 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
            "LOWER(p.ingredients) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     Page<Product> searchProducts(@Param("keyword") String keyword, Pageable pageable);
 
+    @Query("SELECT p FROM Product p WHERE " +
+            "LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(p.productCode) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(p.description) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+    Page<Product> searchAllForAdmin(@Param("keyword") String keyword, Pageable pageable);
+
     List<Product> findByStockQuantityLessThan(Integer threshold);
 
     Boolean existsByProductCode(String productCode);
