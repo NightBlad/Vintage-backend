@@ -73,3 +73,6 @@ Thumbs.db
 
 ### perfomance testing ###
 performance/
+
+### JMeter results (generated at runtime) ###
+target/jmeter/
