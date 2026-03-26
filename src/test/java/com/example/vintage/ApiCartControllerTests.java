@@ -4,6 +4,8 @@ import com.example.vintage.controller.api.ApiCartController;
 import com.example.vintage.entity.Product;
 import com.example.vintage.repository.ProductRepository;
 import com.example.vintage.service.CartService;
+import com.example.vintage.service.InventoryService;
+import com.example.vintage.service.OrderService;
 import com.example.vintage.service.SessionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +23,8 @@ public class ApiCartControllerTests {
     private CartService cartService;
     private ProductRepository productRepository;
     private SessionService sessionService;
+    private InventoryService inventoryService;
+    private OrderService orderService;
     private ApiCartController apiCartController;
 
     @BeforeEach
@@ -28,13 +32,18 @@ public class ApiCartControllerTests {
         cartService = mock(CartService.class);
         productRepository = mock(ProductRepository.class);
         sessionService = mock(SessionService.class);
-        apiCartController = new ApiCartController(cartService, productRepository, sessionService);
+        inventoryService = mock(InventoryService.class);
+        orderService = mock(OrderService.class);
+
+        apiCartController = new ApiCartController(cartService, productRepository, sessionService, inventoryService, orderService);
     }
 
     @Test // Test thêm sản phẩm vào giỏ thành công
     void testAddProductToCart_ShouldSuccess() {
         Product product = buildProduct(1L, 10, true);
         when(productRepository.findById(1L)).thenReturn(java.util.Optional.of(product));
+        when(cartService.getItemCount(1L)).thenReturn(0);
+        when(inventoryService.getAvailableQuantity(product)).thenReturn(10);
 
         Map<String, Object> body = Map.of(
                 "productId", 1L,
@@ -56,6 +65,8 @@ public class ApiCartControllerTests {
     void testIncreaseQuantity_ExceedStock_ShouldFail() {
         Product product = buildProduct(1L, 3, true); // stock = 3
         when(productRepository.findById(1L)).thenReturn(java.util.Optional.of(product));
+        when(cartService.getItemCount(1L)).thenReturn(0);
+        when(inventoryService.getAvailableQuantity(product)).thenReturn(3);
 
         Map<String, Object> body = Map.of(
                 "productId", 1L,
@@ -66,7 +77,7 @@ public class ApiCartControllerTests {
 
         assertThat(response.getStatusCode().is4xxClientError()).isTrue();
         Map<?, ?> res = (Map<?, ?>) response.getBody();
-        assertThat(res.get("error")).isEqualTo("Số lượng sản phẩm không đủ");
+        assertThat(res.get("error")).isEqualTo("Số lượng sản phẩm trong kho không đủ");
         verify(cartService, never()).addToCart(any(), anyInt());
     }
 
@@ -74,6 +85,7 @@ public class ApiCartControllerTests {
     void testIncreaseCartQuantity_ShouldUpdateQuantity() {
         Product product = buildProduct(1L, 10, true);
         when(productRepository.findById(1L)).thenReturn(java.util.Optional.of(product));
+        when(inventoryService.getAvailableQuantity(product)).thenReturn(10);
 
         Map<String, Object> body = Map.of(
                 "productId", 1L,
@@ -81,8 +93,7 @@ public class ApiCartControllerTests {
         );
 
         when(cartService.getTotalItems()).thenReturn(5);
-        // CartService.getTotalAmount() trả về double/Double -> dùng literal double để mock
-        when(cartService.getTotalAmount()).thenReturn(500_000D);
+        when(cartService.getTotalAmount()).thenReturn(BigDecimal.valueOf(500_000));
 
         ResponseEntity<?> response = apiCartController.updateCart(body);
 
@@ -90,6 +101,7 @@ public class ApiCartControllerTests {
         Map<?, ?> res = (Map<?, ?>) response.getBody();
         assertThat(res.get("message")).isEqualTo("Đã cập nhật giỏ hàng");
         assertThat(res.get("totalItems")).isEqualTo(5);
+        assertThat(res.get("totalAmount")).isEqualTo(BigDecimal.valueOf(500_000));
         verify(cartService).updateCart(product, 5);
     }
 

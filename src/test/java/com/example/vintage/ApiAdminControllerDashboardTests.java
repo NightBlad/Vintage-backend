@@ -101,7 +101,7 @@ public class ApiAdminControllerDashboardTests {
         Map<?, ?> salesSummary = (Map<?, ?>) body.get("salesSummary");
         assertThat(salesSummary.get("recentOrderCount")).isEqualTo(3);
         assertThat(salesSummary.get("recentRevenue")).isEqualTo(BigDecimal.valueOf(200000));
-        assertThat(salesSummary.get("recentAov")).isEqualTo(BigDecimal.valueOf(200000.00));
+        assertThat(salesSummary.get("recentAov")).isEqualTo(BigDecimal.valueOf(200000).setScale(2));
         assertThat(salesSummary.get("recentCancellationRate")).isEqualTo(33.33d);
 
         List<Map<?, ?>> statusStats = (List<Map<?, ?>>) salesSummary.get("statusStats");

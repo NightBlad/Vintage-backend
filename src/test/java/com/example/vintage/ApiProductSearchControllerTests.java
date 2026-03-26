@@ -4,6 +4,7 @@ import com.example.vintage.controller.api.ApiProductController;
 import com.example.vintage.entity.Product;
 import com.example.vintage.repository.CategoryRepository;
 import com.example.vintage.repository.ProductRepository;
+import com.example.vintage.service.InventoryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.*;
@@ -19,13 +20,16 @@ public class ApiProductSearchControllerTests {
 
     private ProductRepository productRepository;
     private CategoryRepository categoryRepository;
+    private InventoryService inventoryService;
     private ApiProductController apiProductController;
 
     @BeforeEach
     void setUp() {
         productRepository = mock(ProductRepository.class);
         categoryRepository = mock(CategoryRepository.class);
-        apiProductController = new ApiProductController(productRepository, categoryRepository);
+        inventoryService = mock(InventoryService.class);
+        when(inventoryService.getAvailableQuantity(any(Product.class))).thenReturn(0);
+        apiProductController = new ApiProductController(productRepository, categoryRepository, inventoryService);
     }
 
     @Test // Test search sản phẩm với keyword có kết quả -> trả về danh sách sản phẩm phù hợp

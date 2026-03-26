@@ -5,6 +5,7 @@ import com.example.vintage.entity.Category;
 import com.example.vintage.entity.Product;
 import com.example.vintage.repository.CategoryRepository;
 import com.example.vintage.repository.ProductRepository;
+import com.example.vintage.service.InventoryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.*;
@@ -21,13 +22,19 @@ public class ApiProductControllerTests {
 
     private ProductRepository productRepository;
     private CategoryRepository categoryRepository;
+    private InventoryService inventoryService;
     private ApiProductController apiProductController;
 
     @BeforeEach
     void setUp() {
         productRepository = mock(ProductRepository.class);
         categoryRepository = mock(CategoryRepository.class);
-        apiProductController = new ApiProductController(productRepository, categoryRepository);
+        inventoryService = mock(InventoryService.class);
+        when(inventoryService.getAvailableQuantity(any(Product.class))).thenAnswer(inv -> {
+            Product p = inv.getArgument(0);
+            return p.getStockQuantity();
+        });
+        apiProductController = new ApiProductController(productRepository, categoryRepository, inventoryService);
     }
 
     @Test // Test lấy danh sách sản phẩm trang 1 (page=0) -> trả về đúng số lượng và thông tin phân trang
