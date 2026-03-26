@@ -19,17 +19,23 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.security.Principal;
 
 @RestController
-@RequestMapping({"/api/admin", "/api/v1/admin"})
+@RequestMapping({"/api/admin", "/api/v1/admin", "/admin"})
 public class ApiAdminController {
+
+    private static final int DASHBOARD_LOW_STOCK_THRESHOLD = 10;
+    private static final int DASHBOARD_RECENT_ORDER_LIMIT = 10;
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
@@ -65,21 +71,202 @@ public class ApiAdminController {
 
     @GetMapping("/dashboard")
     public ResponseEntity<?> dashboard() {
-        return ResponseEntity.ok(Map.of(
-                "totalProducts", productRepository.count(),
-                "totalCategories", categoryRepository.count(),
-                "totalUsers", userRepository.count(),
-                "totalOrders", orderRepository.count(),
-                "totalWarehouses", inventoryService.getAllWarehouses().size(),
-                "lowStockProducts", inventoryService.getLowStockInventory(10).stream()
-                        .map(inv -> Map.of(
-                                "id", inv.getProductId(),
-                                "name", inv.getProductName(),
-                                "stockQuantity", inv.getQuantity(),
-                                "warehouseName", inv.getWarehouseName()
-                        ))
-                        .collect(Collectors.toList())
-        ));
+        List<Product> lowStockProducts = productRepository.findByStockQuantityLessThan(DASHBOARD_LOW_STOCK_THRESHOLD);
+        List<Order> recentOrders = orderRepository.findAllOrderByOrderDateDesc(PageRequest.of(0, DASHBOARD_RECENT_ORDER_LIMIT)).getContent();
+
+        List<Map<String, Object>> recentOrderPayload = recentOrders.stream()
+                .map(this::toDashboardOrder)
+                .collect(Collectors.toList());
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("totalProducts", productRepository.count());
+        response.put("totalCategories", categoryRepository.count());
+        response.put("totalUsers", userRepository.count());
+        response.put("totalOrders", orderRepository.count());
+        response.put("lowStockCount", lowStockProducts.size());
+        response.put("lowStockProducts", lowStockProducts.stream().map(this::toDashboardProduct).collect(Collectors.toList()));
+        response.put("recentOrders", recentOrderPayload);
+        response.put("salesSummary", buildSalesSummary(recentOrders));
+
+        return ResponseEntity.ok(response);
+    }
+
+    private Map<String, Object> buildSalesSummary(List<Order> recentOrders) {
+        BigDecimal deliveredRevenue = recentOrders.stream()
+                .filter(order -> order.getStatus() == OrderStatus.DELIVERED)
+                .map(order -> order.getTotalAmount() != null ? order.getTotalAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        long deliveredCount = recentOrders.stream().filter(order -> order.getStatus() == OrderStatus.DELIVERED).count();
+        long cancelledCount = recentOrders.stream().filter(order -> order.getStatus() == OrderStatus.CANCELLED).count();
+
+        BigDecimal recentAov = deliveredCount > 0
+                ? deliveredRevenue.divide(BigDecimal.valueOf(deliveredCount), 2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+
+        double cancellationRate = recentOrders.isEmpty()
+                ? 0.0d
+                : BigDecimal.valueOf(cancelledCount)
+                .multiply(BigDecimal.valueOf(100))
+                .divide(BigDecimal.valueOf(recentOrders.size()), 2, RoundingMode.HALF_UP)
+                .doubleValue();
+
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("recentOrderCount", recentOrders.size());
+        summary.put("recentRevenue", deliveredRevenue);
+        summary.put("recentAov", recentAov);
+        summary.put("recentCancellationRate", cancellationRate);
+        summary.put("topSellingProducts", buildTopSellingProducts(recentOrders));
+        summary.put("statusStats", buildStatusStats(recentOrders));
+        summary.put("insights", buildDashboardInsights(recentOrders, cancellationRate));
+        return summary;
+    }
+
+    private List<Map<String, Object>> buildTopSellingProducts(List<Order> recentOrders) {
+        Map<Long, Map<String, Object>> aggregates = new LinkedHashMap<>();
+
+        for (Order order : recentOrders) {
+            if (order.getOrderItems() == null) {
+                continue;
+            }
+            for (OrderItem item : order.getOrderItems()) {
+                Product product = item.getProduct();
+                Long productId = product != null ? product.getId() : null;
+                String productName = product != null ? product.getName() : "Unknown Product";
+                Long key = productId != null ? productId : -1L;
+
+                Map<String, Object> aggregate = aggregates.computeIfAbsent(key, ignored -> {
+                    Map<String, Object> row = new HashMap<>();
+                    row.put("productId", productId);
+                    row.put("productName", productName);
+                    row.put("quantity", 0);
+                    row.put("revenue", BigDecimal.ZERO);
+                    return row;
+                });
+
+                int quantity = item.getQuantity() != null ? item.getQuantity() : 0;
+                BigDecimal lineRevenue = item.getTotalPrice() != null ? item.getTotalPrice() : BigDecimal.ZERO;
+                aggregate.put("quantity", (Integer) aggregate.get("quantity") + quantity);
+                aggregate.put("revenue", ((BigDecimal) aggregate.get("revenue")).add(lineRevenue));
+            }
+        }
+
+        return aggregates.values().stream()
+                .sorted((a, b) -> Integer.compare((Integer) b.get("quantity"), (Integer) a.get("quantity")))
+                .limit(5)
+                .collect(Collectors.toList());
+    }
+
+    private List<Map<String, Object>> buildStatusStats(List<Order> recentOrders) {
+        Map<String, Long> counts = recentOrders.stream()
+                .collect(Collectors.groupingBy(order -> normalizeDashboardStatus(order.getStatus()), LinkedHashMap::new, Collectors.counting()));
+
+        int total = recentOrders.size();
+        return counts.entrySet().stream().map(entry -> {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("status", entry.getKey());
+            row.put("count", entry.getValue());
+            double share = total == 0
+                    ? 0.0d
+                    : BigDecimal.valueOf(entry.getValue())
+                    .multiply(BigDecimal.valueOf(100))
+                    .divide(BigDecimal.valueOf(total), 2, RoundingMode.HALF_UP)
+                    .doubleValue();
+            row.put("share", share);
+            return row;
+        }).collect(Collectors.toList());
+    }
+
+    private List<Map<String, Object>> buildDashboardInsights(List<Order> recentOrders, double cancellationRate) {
+        List<Map<String, Object>> insights = new ArrayList<>();
+
+        if (recentOrders.isEmpty()) {
+            insights.add(Map.of(
+                    "tone", "info",
+                    "message", "Chua co don hang gan day de phan tich."
+            ));
+            return insights;
+        }
+
+        if (cancellationRate >= 20.0d) {
+            insights.add(Map.of(
+                    "tone", "warning",
+                    "message", "Ti le huy don gan day cao, hay ra soat quy trinh xac nhan don.",
+                    "link", "/admin/orders?status=CANCELLED",
+                    "linkLabel", "Xem don bi huy"
+            ));
+        } else {
+            insights.add(Map.of(
+                    "tone", "success",
+                    "message", "Ti le huy don dang o muc on dinh trong nhom don gan day."
+            ));
+        }
+
+        long deliveredCount = recentOrders.stream().filter(order -> order.getStatus() == OrderStatus.DELIVERED).count();
+        if (deliveredCount == 0) {
+            insights.add(Map.of(
+                    "tone", "info",
+                    "message", "Chua co don DELIVERED trong tap don gan day."
+            ));
+        }
+
+        return insights;
+    }
+
+    private String normalizeDashboardStatus(OrderStatus status) {
+        if (status == null) {
+            return "PENDING";
+        }
+        if (status == OrderStatus.SHIPPED) {
+            return "SHIPPING";
+        }
+        return status.name();
+    }
+
+    private Map<String, Object> toDashboardProduct(Product product) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("id", product.getId());
+        payload.put("name", product.getName());
+        payload.put("productCode", product.getProductCode());
+        payload.put("price", product.getPrice());
+        payload.put("salePrice", product.getSalePrice());
+        payload.put("stockQuantity", product.getStockQuantity());
+        payload.put("imageUrl", product.getImageUrl());
+        payload.put("active", product.isActive());
+        return payload;
+    }
+
+    private Map<String, Object> toDashboardOrder(Order order) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("id", order.getId());
+        payload.put("orderNumber", order.getOrderNumber());
+        payload.put("status", normalizeDashboardStatus(order.getStatus()));
+        payload.put("paymentMethod", order.getPaymentMethod());
+        payload.put("paymentStatus", order.getPaymentStatus());
+        payload.put("totalAmount", order.getTotalAmount());
+        payload.put("shippingFee", order.getShippingFee());
+        payload.put("customerName", order.getCustomerName());
+        payload.put("customerPhone", order.getCustomerPhone());
+        payload.put("shippingAddress", order.getShippingAddress());
+        payload.put("orderDate", order.getOrderDate());
+
+        List<Map<String, Object>> items = order.getOrderItems() == null ? List.of() : order.getOrderItems().stream().map(item -> {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("id", item.getId());
+            row.put("quantity", item.getQuantity());
+            row.put("price", item.getPrice());
+            row.put("totalPrice", item.getTotalPrice());
+            if (item.getProduct() != null) {
+                row.put("productId", item.getProduct().getId());
+                row.put("productName", item.getProduct().getName());
+                row.put("productCode", item.getProduct().getProductCode());
+                row.put("productImage", item.getProduct().getImageUrl() != null ? "/uploads/" + item.getProduct().getImageUrl() : null);
+            }
+            return row;
+        }).collect(Collectors.toList());
+        payload.put("orderItems", items);
+        payload.put("itemCount", items.size());
+        return payload;
     }
 
     // ===== PRODUCT MANAGEMENT =====

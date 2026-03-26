@@ -87,7 +87,7 @@ public class SecurityConfig {
                     "/h2-console/**"
                 ).permitAll()
                 // Admin API endpoints
-                .requestMatchers("/api/admin/**", "/api/v1/admin/**").hasRole("ADMIN")
+                .requestMatchers("/api/admin/**", "/api/v1/admin/**", "/admin/**").hasRole("ADMIN")
                 // Inventory management endpoints (admin only)
                 .requestMatchers("/api/inventory/**", "/api/v1/inventory/**").hasRole("ADMIN")
                 // Authenticated user endpoints
