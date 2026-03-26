@@ -1000,6 +1000,7 @@ public class ApiAdminController {
                     m.put("email", u.getEmail());
                     m.put("fullName", u.getFullName());
                     m.put("phone", u.getPhone());
+                    m.put("address", u.getAddress());
                     m.put("enabled", u.isEnabled());
 
                     // THÊM DÒNG NÀY ĐỂ GIỮ TRẠNG THÁI KHÓA KHI LOAD LẠI TRANG
@@ -1015,6 +1016,24 @@ public class ApiAdminController {
                 "totalPages", users.getTotalPages(),
                 "currentPage", users.getNumber()
         ));
+    }
+
+    @GetMapping("/users/{id}")
+    public ResponseEntity<?> getUser(@PathVariable Long id) {
+        User user = userRepository.findById(id).orElse(null);
+        if (user == null) return ResponseEntity.notFound().build();
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("id", user.getId());
+        response.put("username", user.getUsername());
+        response.put("email", user.getEmail());
+        response.put("fullName", user.getFullName());
+        response.put("phone", user.getPhone());
+        response.put("address", user.getAddress());
+        response.put("enabled", user.isEnabled());
+        response.put("accountLocked", user.isAccountLocked());
+        response.put("roles", user.getRoles().stream().map(r -> r.getName().name()).toList());
+        response.put("createdAt", user.getCreatedAt());
+        return ResponseEntity.ok(response);
     }
 
     @PutMapping("/users/{id}/toggle-status")
