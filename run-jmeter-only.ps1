@@ -17,6 +17,9 @@
 .PARAMETER LoginPassword
     Mật khẩu cho Thread Group 3 (truyền qua JMeter property login.password).
 
+.PARAMETER HtmlReportDir
+    Thư mục lưu báo cáo HTML (mặc định: target/jmeter/results/report).
+
 .EXAMPLE
     .\run-jmeter-only.ps1
     .\run-jmeter-only.ps1 -JmeterHome "C:\apache-jmeter-5.6.3" -LoginUsername "admin" -LoginPassword "secret"
@@ -27,7 +30,8 @@ param(
     [string]$JmeterTestFile  = "src/test/jmeter/vintage-suite.jmx",
     [string]$ResultsDir      = "target/jmeter/results",
     [string]$LoginUsername   = $env:JMETER_LOGIN_USERNAME,
-    [string]$LoginPassword   = $env:JMETER_LOGIN_PASSWORD
+    [string]$LoginPassword   = $env:JMETER_LOGIN_PASSWORD,
+    [string]$HtmlReportDir   = $null
 )
 
 $ErrorActionPreference = "Stop"
@@ -50,6 +54,10 @@ if (-not [System.IO.Path]::IsPathRooted($JmeterTestFile)) {
 if (-not [System.IO.Path]::IsPathRooted($ResultsDir)) {
     $ResultsDir = Join-Path $scriptDir $ResultsDir
 }
+$HtmlReportDir = if ($HtmlReportDir) { $HtmlReportDir } else { Join-Path $ResultsDir "report" }
+if (-not [System.IO.Path]::IsPathRooted($HtmlReportDir)) {
+    $HtmlReportDir = Join-Path $scriptDir $HtmlReportDir
+}
 
 if (-not (Test-Path $JmeterTestFile)) {
     Write-Error "JMeter test file not found: $JmeterTestFile"
@@ -62,6 +70,9 @@ if (Test-Path $ResultsDir) {
     Remove-Item -Recurse -Force $ResultsDir
 }
 New-Item -ItemType Directory -Force -Path $ResultsDir | Out-Null
+if (Test-Path $HtmlReportDir) {
+    Remove-Item -Recurse -Force $HtmlReportDir
+}
 
 $summaryFile = Join-Path $ResultsDir "vintage-suite-summary.csv"
 $allResults  = Join-Path $ResultsDir "vintage-suite-results.csv"
@@ -73,9 +84,10 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host " Running JMeter test plan"               -ForegroundColor Cyan
 Write-Host "   Plan   : $JmeterTestFile"             -ForegroundColor Cyan
 Write-Host "   Results: $ResultsDir"                 -ForegroundColor Cyan
+Write-Host "   Report : $HtmlReportDir"              -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 
-& $jmeterCmd -n -t $JmeterTestFile -l $allResults -j $logFile `
+& $jmeterCmd -n -t $JmeterTestFile -l $allResults -j $logFile -e -o $HtmlReportDir `
     "-Jlogin.username=$LoginUsername" "-Jlogin.password=$LoginPassword"
 if ($LASTEXITCODE -ne 0) {
     Write-Error "JMeter exited with code $LASTEXITCODE. See log: $logFile"
@@ -118,4 +130,7 @@ if ($csvFile) {
 
 Write-Host ""
 Write-Host "  JMeter log: $logFile" -ForegroundColor Gray
+if (Test-Path $HtmlReportDir) {
+    Write-Host "  HTML report: $HtmlReportDir/index.html" -ForegroundColor Gray
+}
 Write-Host "========================================" -ForegroundColor Green
