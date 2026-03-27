@@ -89,7 +89,7 @@ public class SecurityConfig {
                 // User management endpoints: ADMIN only
                 .requestMatchers("/api/admin/users/**", "/api/v1/admin/users/**", "/admin/users/**").hasRole("ADMIN")
                 // Admin/Staff endpoints
-                .requestMatchers("/api/admin/**", "/api/v1/admin/**", "/admin/**").hasAnyRole("ADMIN", "STAFF")
+                .requestMatchers("/api/admin/**", "/api/v1/admin/**").hasAnyRole("ADMIN", "STAFF")
                 // Inventory management endpoints (admin & staff)
                 .requestMatchers("/api/inventory/**", "/api/v1/inventory/**").hasAnyRole("ADMIN", "STAFF")
                 // Authenticated user endpoints
