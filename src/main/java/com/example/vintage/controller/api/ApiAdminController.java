@@ -16,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -49,6 +50,7 @@ public class ApiAdminController {
     private final ProductService productService;
     private final InventoryService inventoryService;
     private final OrderService orderService;
+    private final PasswordEncoder passwordEncoder;
 
     public ApiAdminController(ProductRepository productRepository,
                                CategoryRepository categoryRepository,
@@ -58,7 +60,8 @@ public class ApiAdminController {
                                FileUploadService fileUploadService,
                                ProductService productService,
                                InventoryService inventoryService,
-                               OrderService orderService) {
+                               OrderService orderService,
+                               PasswordEncoder passwordEncoder) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
         this.orderRepository = orderRepository;
@@ -68,6 +71,7 @@ public class ApiAdminController {
         this.productService = productService;
         this.inventoryService = inventoryService;
         this.orderService = orderService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     // ===== DASHBOARD =====
@@ -1312,6 +1316,80 @@ public class ApiAdminController {
         response.put("roles", user.getRoles().stream().map(r -> r.getName().name()).toList());
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/users")
+    @Transactional
+    public ResponseEntity<?> createUser(@RequestBody Map<String, Object> body) {
+        String username = body.get("username") != null ? body.get("username").toString().trim() : null;
+        String fullName = body.get("fullName") != null ? body.get("fullName").toString().trim() : null;
+        String email = body.get("email") != null ? body.get("email").toString().trim() : null;
+        String phone = body.get("phone") != null ? body.get("phone").toString().trim() : null;
+        String address = body.get("address") != null ? body.get("address").toString().trim() : null;
+
+        if (username == null || username.length() < 3) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Tên đăng nhập phải có ít nhất 3 ký tự"));
+        }
+        if (fullName == null || fullName.length() < 2) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Họ tên phải có ít nhất 2 ký tự"));
+        }
+        if (email == null || !email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email không hợp lệ"));
+        }
+
+        if (userRepository.findByUsername(username).isPresent()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Tên đăng nhập đã tồn tại"));
+        }
+        userRepository.findByEmail(email).ifPresent(u -> {
+            throw new RuntimeException("Email đã được sử dụng bởi tài khoản khác");
+        });
+
+        boolean enabled = body.get("enabled") == null || Boolean.parseBoolean(body.get("enabled").toString());
+        boolean accountLocked = body.get("accountLocked") != null && Boolean.parseBoolean(body.get("accountLocked").toString());
+
+        User user = new User();
+        user.setUsername(username);
+        user.setFullName(fullName);
+        user.setEmail(email);
+        user.setPhone(phone);
+        user.setAddress(address);
+        user.setEnabled(enabled);
+        user.setAccountLocked(accountLocked);
+        user.setFailedAttempts(0);
+
+        // set default password (admin should ask user to change on first login)
+        String defaultPassword = "123456";
+        user.setPassword(passwordEncoder.encode(defaultPassword));
+
+        // roles from body or default ROLE_USER
+        List<String> roleNames = body.get("roles") instanceof List<?> list
+                ? list.stream().map(Object::toString).toList()
+                : List.of("ROLE_USER");
+
+        List<Role> roles = roleRepository.findAll().stream()
+                .filter(r -> roleNames.contains(r.getName().name()))
+                .collect(Collectors.toList());
+        if (roles.isEmpty()) {
+            Role userRole = roleRepository.findByName(RoleName.ROLE_USER)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy quyền ROLE_USER"));
+            roles = List.of(userRole);
+        }
+        user.setRoles(new java.util.HashSet<>(roles));
+
+        User saved = userRepository.save(user);
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("id", saved.getId());
+        response.put("username", saved.getUsername());
+        response.put("email", saved.getEmail());
+        response.put("fullName", saved.getFullName());
+        response.put("phone", saved.getPhone());
+        response.put("address", saved.getAddress());
+        response.put("enabled", saved.isEnabled());
+        response.put("accountLocked", saved.isAccountLocked());
+        response.put("roles", saved.getRoles().stream().map(r -> r.getName().name()).toList());
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     private MultipartFile resolveMainImage(MultipartFile imageFile, MultipartFile image) {
