@@ -1,10 +1,12 @@
 package com.example.vintage.controller.api;
 
+import com.example.vintage.dto.ProductReviewDTO;
 import com.example.vintage.entity.Category;
 import com.example.vintage.entity.Product;
 import com.example.vintage.repository.CategoryRepository;
 import com.example.vintage.repository.ProductRepository;
 import com.example.vintage.service.InventoryService;
+import com.example.vintage.service.ProductReviewService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -21,13 +23,16 @@ public class ApiProductController {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final InventoryService inventoryService;
+    private final ProductReviewService productReviewService;
 
     public ApiProductController(ProductRepository productRepository,
                                 CategoryRepository categoryRepository,
-                                InventoryService inventoryService) {
+                                InventoryService inventoryService,
+                                ProductReviewService productReviewService) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
         this.inventoryService = inventoryService;
+        this.productReviewService = productReviewService;
     }
 
     /**
@@ -137,6 +142,26 @@ public class ApiProductController {
         }
     }
 
+    /**
+     * POST /api/products/{productId}/reviews
+     */
+    @PostMapping("/products/{productId}/reviews")
+    public ResponseEntity<ProductReviewDTO> createReview(@PathVariable Long productId,
+                                                         @RequestBody ProductReviewDTO dto) {
+        dto.setProductId(productId);
+        ProductReviewDTO saved = productReviewService.createReview(dto);
+        return ResponseEntity.ok(saved);
+    }
+
+    /**
+     * GET /api/products/{productId}/reviews
+     */
+    @GetMapping("/products/{productId}/reviews")
+    public ResponseEntity<Map<String, Object>> getProductReviews(@PathVariable Long productId) {
+        Map<String, Object> summary = productReviewService.getProductReviewsSummary(productId);
+        return ResponseEntity.ok(summary);
+    }
+
     // ===== Helper methods =====
 
     private Map<String, Object> buildPageResponse(Page<Product> page) {
@@ -216,4 +241,3 @@ public class ApiProductController {
         return map;
     }
 }
-
