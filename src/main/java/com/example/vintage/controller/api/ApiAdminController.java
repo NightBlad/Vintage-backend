@@ -1326,6 +1326,7 @@ public class ApiAdminController {
         String email = body.get("email") != null ? body.get("email").toString().trim() : null;
         String phone = body.get("phone") != null ? body.get("phone").toString().trim() : null;
         String address = body.get("address") != null ? body.get("address").toString().trim() : null;
+        String rawPassword = body.get("password") != null ? body.get("password").toString() : null;
 
         if (username == null || username.length() < 3) {
             return ResponseEntity.badRequest().body(Map.of("error", "Tên đăng nhập phải có ít nhất 3 ký tự"));
@@ -1335,6 +1336,9 @@ public class ApiAdminController {
         }
         if (email == null || !email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
             return ResponseEntity.badRequest().body(Map.of("error", "Email không hợp lệ"));
+        }
+        if (rawPassword == null || rawPassword.length() < 6) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Mật khẩu phải có ít nhất 6 ký tự"));
         }
 
         if (userRepository.findByUsername(username).isPresent()) {
@@ -1357,9 +1361,8 @@ public class ApiAdminController {
         user.setAccountLocked(accountLocked);
         user.setFailedAttempts(0);
 
-        // set default password (admin should ask user to change on first login)
-        String defaultPassword = "123456";
-        user.setPassword(passwordEncoder.encode(defaultPassword));
+        // use password from request
+        user.setPassword(passwordEncoder.encode(rawPassword));
 
         // roles from body or default ROLE_USER
         List<String> roleNames = body.get("roles") instanceof List<?> list
@@ -1368,7 +1371,7 @@ public class ApiAdminController {
 
         List<Role> roles = roleRepository.findAll().stream()
                 .filter(r -> roleNames.contains(r.getName().name()))
-                .collect(Collectors.toList());
+                .toList();
         if (roles.isEmpty()) {
             Role userRole = roleRepository.findByName(RoleName.ROLE_USER)
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy quyền ROLE_USER"));
