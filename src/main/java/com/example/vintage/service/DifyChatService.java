@@ -2,6 +2,7 @@ package com.example.vintage.service;
 
 import com.example.vintage.config.DifyProperties;
 import com.example.vintage.dto.chat.DifyChatResponse;
+import com.example.vintage.dto.chat.DifyMessagesResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -61,6 +62,34 @@ public class DifyChatService {
             log.error("Dify API error: status={}, body={} ", ex.getStatusCode(), ex.getResponseBodyAsString());
             throw ex;
         }
+    }
+
+    public DifyMessagesResponse getMessages(String conversationId, String userId, Integer limit, String firstId) {
+        if (!properties.isConfigured()) {
+            throw new IllegalStateException("Dify API chưa được cấu hình apiUrl/apiKey");
+        }
+
+        return webClient.get()
+            .uri(uriBuilder -> {
+                var builder = uriBuilder.path("/messages");
+                if (conversationId != null && !conversationId.isBlank()) {
+                    builder.queryParam("conversation_id", conversationId);
+                }
+                if (userId != null && !userId.isBlank()) {
+                    builder.queryParam("user", userId);
+                }
+                if (limit != null) {
+                    builder.queryParam("limit", limit);
+                }
+                if (firstId != null && !firstId.isBlank()) {
+                    builder.queryParam("first_id", firstId);
+                }
+                return builder.build();
+            })
+            .retrieve()
+            .bodyToMono(DifyMessagesResponse.class)
+            .timeout(Duration.ofSeconds(properties.getTimeoutSeconds()))
+            .block();
     }
 
     private String normalizeBaseUrl(String raw) {
