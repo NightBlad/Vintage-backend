@@ -81,8 +81,6 @@ public class SecurityConfig {
                     "/api/v1/categories/**",
                     "/api/search",
                     "/api/v1/search",
-                    "/api/chatbot/**",
-                    "/api/v1/chatbot/**",
                     "/uploads/**",
                     "/h2-console/**"
                 ).permitAll()
